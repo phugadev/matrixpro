@@ -2,6 +2,10 @@
 
 No-code data exploration and visualisation. Built with **Vite + React + Electron + sql.js**.
 
+Vibe coding with Claude Code.
+
+![MatrixPro Screenshot](screenshot.png)
+
 ---
 
 ## Quick start
