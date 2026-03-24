@@ -33,7 +33,7 @@ ${colSummary}
 
 Generate exactly 5 specific, actionable insight suggestions. Rules:
 - Column names in x/y MUST exactly match column names listed above
-- chart must be one of: bar, bar-horizontal, line, area, scatter, bubble, doughnut, bar-stacked, radar, polar
+- chart must be one of: bar, line, area, scatter, bubble, doughnut, bar-stacked, radar, polar
 - title max 7 words, desc max 18 words
 - Return ONLY a valid JSON array, no markdown
 
@@ -347,7 +347,8 @@ function AggDropdown ({ value, onChange }) {
 function GraphTab ({ ds, onApplySuggestion }) {
   const { state, dispatch } = useApp()
   const pal = PALETTES[state.palette]
-  const ct  = state.chartType
+  const ct      = state.chartType
+  const isBar    = ct === 'bar' || ct === 'bar-stacked'
   const isBubble = ct === 'bubble'
   const isRadial = ['doughnut', 'radar', 'polar'].includes(ct)
 
@@ -379,6 +380,24 @@ function GraphTab ({ ds, onApplySuggestion }) {
             </button>
           ))}
         </div>
+
+        {isBar && (
+          <>
+            <div className={s.lbl}>Orientation</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 10 }}>
+              {['vertical', 'horizontal'].map(dir => (
+                <button
+                  key={dir}
+                  className={s.ctBtn + (state.barOrientation === dir ? ' ' + s.ctActive : '')}
+                  onClick={() => dispatch({ type: 'SET_TOGGLE', key: 'barOrientation', value: dir })}
+                >
+                  <span className={s.ctIco}>{dir === 'vertical' ? '📊' : '📶'}</span>
+                  <span className={s.ctLbl}>{dir === 'vertical' ? 'Vertical' : 'Horizontal'}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className={s.lbl}>X axis</div>
         <select className={s.sel} value={state.axisX} onChange={e => setAx('X', e.target.value)}>

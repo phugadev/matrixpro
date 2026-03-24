@@ -41,7 +41,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, sortC
   const rows = allRows.slice(0, 500)
   const isXnum = rows.slice(0, 20).every(r => !isNaN(parseFloat(r[xCol])))
   const isLine = ct === 'line', isArea = ct === 'area'
-  const isBar = ct === 'bar' || ct === 'bar-horizontal', isStacked = ct === 'bar-stacked'
+  const isBar = ct === 'bar', isStacked = ct === 'bar-stacked'
   const isScatter = ct === 'scatter', isBubble = ct === 'bubble'
   const isDoughnut = ct === 'doughnut', isRadar = ct === 'radar', isPolar = ct === 'polar'
 
@@ -223,10 +223,10 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
     const tickC     = '#4a4a5c'
     const legendC   = '#9090a8'
 
-    const isHBar   = ct === 'bar-horizontal'
+    const isHBar = (ct === 'bar' || isStacked) && state.barOrientation === 'horizontal'
 
     const cjsType =
-      (ct === 'bar' || isStacked || isHBar) ? 'bar' :
+      (ct === 'bar' || isStacked) ? 'bar' :
       ct === 'scatter'            ? 'scatter' :
       ct === 'bubble'             ? 'bubble' :
       ct === 'doughnut'           ? 'doughnut' :
@@ -295,7 +295,7 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null } }
   }, [
     ds.rows, ds.filters, state.axisX, state.axisY, state.axisY2, state.axisSz,
-    state.chartType, state.palette, state.showGrid, state.showLabels, state.smoothCurves, state.aggFn,
+    state.chartType, state.barOrientation, state.palette, state.showGrid, state.showLabels, state.smoothCurves, state.aggFn,
   ])
 
   // Expose canvas for PNG export

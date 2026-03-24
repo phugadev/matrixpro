@@ -8,7 +8,8 @@ const init = {
   view:       'table',   // 'table' | 'graph'
   panelOpen:  false,
   panelTab:   'graph',   // 'filters' | 'stats' | 'graph' | 'saved'
-  chartType:  'bar',
+  chartType:      'bar',
+  barOrientation: 'vertical',
   palette:    0,
   axisX:      '',
   axisY:      '',
