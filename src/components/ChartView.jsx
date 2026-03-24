@@ -132,15 +132,18 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
       pointRadius: 4,
     }]
   } else if (isStacked && !isXnum) {
-    const grpCol = ds.cols.find(c => c !== xCol && c !== yCol && !isNumericCol(ds, c))
+    // Use explicit Y2 as group dimension if it's categorical, otherwise auto-detect
+    const grpCol = (y2Col && !isNumericCol(ds, y2Col))
+      ? y2Col
+      : ds.cols.find(c => c !== xCol && c !== yCol && !isNumericCol(ds, c))
     if (grpCol) {
-      const groups = [...new Set(rows.map(r => r[grpCol]))].slice(0, 8)
+      const groups = [...new Set(rows.map(r => String(r[grpCol])))].slice(0, 8)
       const labSet = [...new Set(rows.map(r => String(r[xCol])))].slice(0, 24)
       labels = labSet
       datasets = groups.map((g, gi) => {
         const agg = {}
         labSet.forEach(l => (agg[l] = []))
-        rows.filter(r => r[grpCol] === g).forEach(r => {
+        rows.filter(r => String(r[grpCol]) === g).forEach(r => {
           const k = String(r[xCol])
           if (agg[k] !== undefined) agg[k].push(parseFloat(r[yCol]) || 0)
         })
@@ -149,11 +152,10 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
           data: labSet.map(l => +applyAgg(agg[l], aggFn).toFixed(2)),
           backgroundColor: pal[gi % pal.length] + 'cc',
           borderWidth: 0,
-          yAxisID: y2Col ? 'y' : undefined,
         }
       })
     } else {
-      // fallback: plain stacked bar
+      // fallback: plain stacked bar with numeric Y2 as line overlay
       const agg = {}, agg2 = {}
       rows.forEach(r => {
         const k = String(r[xCol])
@@ -165,48 +167,74 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
         }
       })
       labels = Object.keys(agg).slice(0, 24)
+      const y2IsNumeric = y2Col && isNumericCol(ds, y2Col)
       datasets = [{
         label: yCol,
         data: labels.map(k => +applyAgg(agg[k], aggFn).toFixed(2)),
         backgroundColor: labels.map((_, i) => pal[i % pal.length] + 'cc'),
         borderWidth: 0,
-        yAxisID: y2Col ? 'y' : undefined,
+        yAxisID: y2IsNumeric ? 'y' : undefined,
       }]
-      if (y2Col) {
+      if (y2IsNumeric) {
         datasets.push(makeY2Dataset(y2Col, labels.map(k => +applyAgg(agg2[k] || [], aggFn).toFixed(2)), true, pal, tension))
       }
     }
   } else if (!isXnum) {
     // bar, line, area — categorical X
-    const agg = {}, agg2 = {}
-    rows.forEach(r => {
-      const k = String(r[xCol])
-      if (!agg[k])  agg[k]  = []
-      agg[k].push(parseFloat(r[yCol]) || 0)
-      if (y2Col) {
-        if (!agg2[k]) agg2[k] = []
-        agg2[k].push(parseFloat(r[y2Col]) || 0)
+    const y2IsCat = y2Col && !isNumericCol(ds, y2Col)
+
+    if (isBar && y2IsCat) {
+      // Categorical Y2 on bar → grouped multi-series bars (one series per Y2 value)
+      const groups = [...new Set(rows.map(r => String(r[y2Col])))].slice(0, 8)
+      const labSet = [...new Set(rows.map(r => String(r[xCol])))].slice(0, 24)
+      labels = labSet
+      datasets = groups.map((g, gi) => {
+        const agg = {}
+        labSet.forEach(l => (agg[l] = []))
+        rows.filter(r => String(r[y2Col]) === g).forEach(r => {
+          const k = String(r[xCol])
+          if (agg[k] !== undefined) agg[k].push(parseFloat(r[yCol]) || 0)
+        })
+        return {
+          label: g,
+          data: labSet.map(l => +applyAgg(agg[l], aggFn).toFixed(2)),
+          backgroundColor: pal[gi % pal.length] + 'cc',
+          borderWidth: 0,
+        }
+      })
+    } else {
+      // bar (numeric Y2 overlay), line, area
+      const agg = {}, agg2 = {}
+      rows.forEach(r => {
+        const k = String(r[xCol])
+        if (!agg[k])  agg[k]  = []
+        agg[k].push(parseFloat(r[yCol]) || 0)
+        if (y2Col && !y2IsCat) {
+          if (!agg2[k]) agg2[k] = []
+          agg2[k].push(parseFloat(r[y2Col]) || 0)
+        }
+      })
+      labels = Object.keys(agg).slice(0, 28)
+      const data = labels.map(k => +applyAgg(agg[k], aggFn).toFixed(2))
+      const hasNumY2 = y2Col && !y2IsCat
+
+      datasets = [{
+        label: yCol, data,
+        yAxisID: hasNumY2 ? 'y' : undefined,
+        backgroundColor: isBarType
+          ? labels.map((_, i) => pal[i % pal.length] + 'cc')
+          : pal[0] + '20',
+        borderColor: pal[0],
+        borderWidth: isBarType ? 0 : 2.5,
+        tension,
+        fill: isArea ? 'origin' : false,
+        pointRadius: isBarType ? 0 : 3,
+        pointHoverRadius: 5,
+      }]
+
+      if (hasNumY2) {
+        datasets.push(makeY2Dataset(y2Col, labels.map(k => +applyAgg(agg2[k] || [], aggFn).toFixed(2)), isBarType, pal, tension))
       }
-    })
-    labels = Object.keys(agg).slice(0, 28)
-    const data = labels.map(k => +applyAgg(agg[k], aggFn).toFixed(2))
-
-    datasets = [{
-      label: yCol, data,
-      yAxisID: y2Col ? 'y' : undefined,
-      backgroundColor: isBarType
-        ? labels.map((_, i) => pal[i % pal.length] + 'cc')
-        : pal[0] + '20',
-      borderColor: pal[0],
-      borderWidth: isBarType ? 0 : 2.5,
-      tension,
-      fill: isArea ? 'origin' : false,
-      pointRadius: isBarType ? 0 : 3,
-      pointHoverRadius: 5,
-    }]
-
-    if (y2Col) {
-      datasets.push(makeY2Dataset(y2Col, labels.map(k => +applyAgg(agg2[k] || [], aggFn).toFixed(2)), isBarType, pal, tension))
     }
   } else {
     // numeric X axis
@@ -265,8 +293,10 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
     const isBarType = ct === 'bar' || isStacked
     const isRadial  = ct === 'doughnut' || ct === 'polar'
     const isRadar   = ct === 'radar'
-    const isHBar    = isBarType && state.barOrientation === 'horizontal'
-    const hasY2     = !!state.axisY2
+    const isHBar       = isBarType && state.barOrientation === 'horizontal'
+    const hasY2       = !!state.axisY2
+    // Categorical Y2 on bar = grouped series, no second axis scale needed
+    const y2IsNumeric = hasY2 && isNumericCol(ds, state.axisY2)
     const showGrid  = state.showGrid
     const gridC     = showGrid ? 'rgba(255,255,255,.05)' : 'transparent'
     const tickC     = '#4a4a5c'
@@ -327,7 +357,7 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
             grid:  { color: gridC },
             min: isArea ? 0 : undefined,
           },
-          ...(hasY2 ? {
+          ...(y2IsNumeric ? {
             y2: {
               position: 'right',
               display: true,
