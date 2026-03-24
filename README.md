@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-> `npm run dev` starts Vite on port 5173 and launches Electron pointing at it.  
+> `npm run dev` starts Vite on port 5173 and launches Electron pointing at it.
 > No native compilation required — sql.js is pure WebAssembly.
 
 ---
@@ -30,46 +30,77 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 
 ---
 
-## Ollama AI Insights
+## Features
 
-Matrix Pro calls a locally-running Ollama instance to generate dataset-specific insight suggestions.
+### Datasets
+- Import `.csv` and `.tsv` files via drag & drop or **⌘O**
+- 4 built-in sample datasets (CA Housing, World Population, Sales '23, Tech Stocks)
+- Closing a dataset hides it — it stays in the sidebar and can be reopened
+- Permanent deletion via the toolbar trash icon
+- Datasets and saved graphs are persisted to SQLite on Electron
+
+### Table view
+- Sortable columns, formatted numbers, categorical value pills
+- Active filters shown as chips with one-click removal
+- Group & aggregate — create a new summarised dataset by category
+
+### Graph view
+- 9 chart types: Bar, Line, Area, Stacked, Scatter, Bubble, Doughnut, Radar, Polar
+- Bar charts support vertical and horizontal orientation
+- Dual Y-axis: categorical Y2 → grouped multi-series bars; numeric Y2 → line overlay on second axis
+- 4 colour palettes, grid toggle, smooth curves toggle
+- Export any chart as PNG
+- Save and reload named graph configurations per dataset
+
+### SQL Editor (⌘3)
+- Full in-browser SQL powered by sql.js (WebAssembly)
+- Every open dataset is automatically loaded as a queryable table
+- Cross-dataset `JOIN`s supported
+- Schema sidebar with collapsible tables and column type indicators — click any name to insert it
+- `⌘↵` to run · Tab to indent · results show row count and execution time
+- **Open as dataset** — turn any query result into a new tab
+
+### AI Insights
+- Connects to a locally-running Ollama instance to generate chart suggestions for the active dataset
+- Works fully offline without Ollama — shows a retry prompt if unavailable
+
+---
+
+## Keyboard shortcuts
+
+| Shortcut | Action              |
+|----------|---------------------|
+| ⌘O       | Open dataset        |
+| ⌘1       | Table view          |
+| ⌘2       | Graph view          |
+| ⌘3       | SQL Editor          |
+| ⌘\\      | Toggle filter panel |
+| ⌘S       | Save current graph  |
+| ⌘E       | Export CSV          |
+| Esc      | Close modal         |
+
+---
+
+## Ollama AI Insights
 
 ```bash
 # Install Ollama
 brew install ollama          # macOS
 # or https://ollama.com
 
-# Pull a model (any of these work)
+# Pull a model
 ollama pull llama3.2         # recommended
-ollama pull mistral
-ollama pull phi3
 
 # Ollama auto-starts on localhost:11434
 ```
 
-Click **Generate** in the Graph → AI Insights section.  
-The app works fully without Ollama — the panel shows a friendly retry button.
-
----
-
-## Keyboard shortcuts
-
-| Shortcut     | Action               |
-|--------------|----------------------|
-| ⌘O           | Open dataset         |
-| ⌘1           | Table view           |
-| ⌘2           | Graph view           |
-| ⌘\\          | Toggle filter panel  |
-| ⌘S           | Save current graph   |
-| ⌘E           | Export CSV           |
-| ⌘⇧E          | Export chart PNG     |
-| Esc          | Close modal          |
+Click **Generate** in the Graph → AI Insights panel.
 
 ---
 
 ## Data persistence
 
-Datasets and saved graphs are stored in SQLite (via sql.js) at:
+Datasets and saved graphs are stored in SQLite at:
 
 | Platform | Location |
 |----------|----------|
@@ -77,13 +108,4 @@ Datasets and saved graphs are stored in SQLite (via sql.js) at:
 | Windows  | `%APPDATA%\matrix-pro\matrix-pro.db` |
 | Linux    | `~/.config/matrix-pro/matrix-pro.db` |
 
-Data is restored automatically on next launch.
-
----
-
-## Supported formats
-
-Drop files onto the window, or press **⌘O**:
-
-- `.csv` — comma-separated
-- `.tsv` — tab-separated
+Data is restored automatically on next launch. Deleting all datasets returns the app to a clean Welcome screen.
