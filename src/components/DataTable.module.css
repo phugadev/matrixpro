@@ -27,7 +27,7 @@
   position: relative; max-width: 200px;
 }
 .table tr:hover td { background: var(--bg4); }
-.tdIdx { color: var(--tx3) !important; text-align: center; font: 11px/1 var(--m); }
+.tdIdx { color: var(--tx3) !important; text-align: left; font: 11px/1 var(--m); }
 .num   { color: var(--tx1); font-family: var(--m); }
 .cellBar {
   position: absolute; left: 0; top: 0; height: 100%;
