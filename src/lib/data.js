@@ -35,6 +35,16 @@ export function isNumericCol (ds, col) {
   return sample.length > 0 && sample.every(r => !isNaN(parseNumeric(r[col])))
 }
 
+const BOOL_VALS = new Set([
+  'true','false','yes','no',
+  'TRUE','FALSE','YES','NO',
+  'True','False','Yes','No',
+])
+export function isBooleanCol (ds, col) {
+  const sample = ds.rows.slice(0, 20).filter(r => r[col] !== '' && r[col] != null)
+  return sample.length >= 1 && sample.every(r => BOOL_VALS.has(String(r[col]).trim()))
+}
+
 const DATE_RE = [
   /^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/,                                                          // 2023-01-15 / ISO datetime
   /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/,                                                              // 2023-01-15 10:30:00 (space separator)
@@ -50,10 +60,11 @@ export function isDateCol (ds, col) {
   return sample.length >= 2 && sample.every(v => DATE_RE.some(re => re.test(String(v).trim())))
 }
 
-// 'numeric' | 'date' | 'text'
+// 'numeric' | 'date' | 'boolean' | 'text'
 export function detectColType (ds, col) {
-  if (isNumericCol(ds, col)) return 'numeric'
   if (isDateCol(ds, col))    return 'date'
+  if (isBooleanCol(ds, col)) return 'boolean'
+  if (isNumericCol(ds, col)) return 'numeric'
   return 'text'
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useApp } from '../store/AppContext'
 import { PALETTES, CHART_TYPES } from '../lib/constants'
-import { isNumericCol, detectColType, fmtN, parseNumeric } from '../lib/data'
+import { isNumericCol, detectColType, fmtN, parseNumeric, parseDate } from '../lib/data'
 import s from './Panel.module.css'
 
 // ─── AI Suggestions ──────────────────────────────────────────────────────────
@@ -307,21 +307,176 @@ function TextFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
   )
 }
 
+// ─── Boolean filter ───────────────────────────────────────────────────────────
+function BoolFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
+  const vals    = useMemo(() => [...new Set(ds.rows.map(r => r[col]).filter(v => v !== '' && v != null))], [ds.rows, col])
+  const [sel, setSel] = useState(null)   // null | value string
+
+  const pick = v => {
+    if (sel === v) { setSel(null); onFilterRemove(col); return }
+    setSel(v)
+    onFilterAdd(col, r => String(r[col]).trim() === String(v).trim(), `= ${v}`)
+  }
+
+  return (
+    <div className={s.fWidget}>
+      <div className={s.boolRow}>
+        {vals.map(v => (
+          <button
+            key={v}
+            className={s.boolBtn + (sel === v ? ' ' + s.boolBtnOn : '')}
+            onClick={() => pick(v)}
+          >
+            {String(v)}
+          </button>
+        ))}
+        {sel && (
+          <button className={s.clearFBtn} onClick={() => { setSel(null); onFilterRemove(col) }}>
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Date filter ──────────────────────────────────────────────────────────────
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function DateFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
+  const dates = useMemo(() =>
+    ds.rows.map(r => r[col]).filter(v => v !== '' && v != null).map(v => parseDate(v)).filter(d => !isNaN(d.getTime())),
+    [ds.rows, col]
+  )
+
+  const years  = useMemo(() => [...new Set(dates.map(d => d.getFullYear()))].sort((a, b) => a - b), [dates])
+  const months = useMemo(() => [...new Set(dates.map(d => d.getMonth()))].sort((a, b) => a - b), [dates])
+
+  const [selYears,  setSelYears]  = useState(new Set())
+  const [selMonths, setSelMonths] = useState(new Set())
+  const [fromStr,   setFromStr]   = useState('')
+  const [toStr,     setToStr]     = useState('')
+
+  const buildAndApply = (sy, sm, fs, ts) => {
+    const fromD = fs ? parseDate(fs) : null
+    const toD   = ts ? parseDate(ts) : null
+    const hasFrom  = fromD && !isNaN(fromD)
+    const hasTo    = toD   && !isNaN(toD)
+    if (sy.size === 0 && sm.size === 0 && !hasFrom && !hasTo) { onFilterRemove(col); return }
+
+    const parts = []
+    if (sy.size > 0) parts.push([...sy].join(', '))
+    if (sm.size > 0) parts.push([...sm].map(m => MONTH_NAMES[m]).join(', '))
+    if (hasFrom || hasTo) parts.push(`${fs || '…'} → ${ts || '…'}`)
+
+    onFilterAdd(col, r => {
+      const d = parseDate(r[col])
+      if (isNaN(d.getTime())) return false
+      if (sy.size > 0  && !sy.has(d.getFullYear())) return false
+      if (sm.size > 0  && !sm.has(d.getMonth()))    return false
+      if (hasFrom && d < fromD) return false
+      if (hasTo   && d > toD)   return false
+      return true
+    }, parts.join(' · '))
+  }
+
+  const toggleYear = y => {
+    const next = new Set(selYears); next.has(y) ? next.delete(y) : next.add(y)
+    setSelYears(next); buildAndApply(next, selMonths, fromStr, toStr)
+  }
+  const toggleMonth = m => {
+    const next = new Set(selMonths); next.has(m) ? next.delete(m) : next.add(m)
+    setSelMonths(next); buildAndApply(selYears, next, fromStr, toStr)
+  }
+  const applyRange = () => buildAndApply(selYears, selMonths, fromStr, toStr)
+  const clearAll = () => {
+    setSelYears(new Set()); setSelMonths(new Set()); setFromStr(''); setToStr('')
+    onFilterRemove(col)
+  }
+
+  const hasAny = selYears.size > 0 || selMonths.size > 0 || fromStr || toStr
+
+  return (
+    <div className={s.fWidget}>
+
+      {/* Years */}
+      {years.length > 1 && (
+        <>
+          <div className={s.dateLabel}>Year</div>
+          <div className={s.chipGrid}>
+            {years.map(y => (
+              <button
+                key={y}
+                className={s.dateChip + (selYears.has(y) ? ' ' + s.dateChipOn : '')}
+                onClick={() => toggleYear(y)}
+              >{y}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Months */}
+      {months.length > 1 && (
+        <>
+          <div className={s.dateLabel}>Month</div>
+          <div className={s.chipGrid}>
+            {months.map(m => (
+              <button
+                key={m}
+                className={s.dateChip + (selMonths.has(m) ? ' ' + s.dateChipOn : '')}
+                onClick={() => toggleMonth(m)}
+              >{MONTH_NAMES[m]}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Date range */}
+      <div className={s.dateLabel}>Date range</div>
+      <div className={s.rangeRow}>
+        <input className={s.rangeIn} value={fromStr} onChange={e => setFromStr(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && applyRange()} placeholder="From (YYYY-MM-DD)" />
+        <span className={s.rangeDash}>–</span>
+        <input className={s.rangeIn} value={toStr} onChange={e => setToStr(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && applyRange()} placeholder="To (YYYY-MM-DD)" />
+      </div>
+      <div className={s.fActions}>
+        {(fromStr || toStr) && <button className={s.applyBtn} onClick={applyRange}>Apply range</button>}
+        {hasAny && <button className={s.clearFBtn} onClick={clearAll}>Clear all</button>}
+      </div>
+
+    </div>
+  )
+}
+
 // ─── Single column filter card ────────────────────────────────────────────────
+const TYPE_META = {
+  numeric: { label: '#', cls: 'typeBadgeNum'  },
+  date:    { label: 'D', cls: 'typeBadgeDate' },
+  boolean: { label: 'B', cls: 'typeBadgeBool' },
+  text:    { label: 'T', cls: 'typeBadgeCat'  },
+}
+
 function ColFilterCard ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
   const [open, setOpen] = useState(false)
-  const colType  = useMemo(() => detectColType(ds, col), [ds, col])
-  const isActive = col in (ds.filters || {})
-  const vals     = ds.rows.map(r => r[col]).filter(v => v !== '' && v != null)
+  const colType   = useMemo(() => detectColType(ds, col), [ds, col])
+  const isActive  = col in (ds.filters || {})
+  const vals      = ds.rows.map(r => r[col]).filter(v => v !== '' && v != null)
   const uniqCount = new Set(vals).size
+  const { label: typeLabel, cls: typeCls } = TYPE_META[colType] || TYPE_META.text
 
-  const typeLabel = colType === 'numeric' ? '#' : colType === 'date' ? 'D' : 'T'
-  const typeClass = colType === 'numeric' ? s.typeBadgeNum : colType === 'date' ? s.typeBadgeDate : s.typeBadgeCat
+  const renderWidget = () => {
+    if (colType === 'numeric') return <NumericFilter col={col} ds={ds} pal={pal} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'date')    return <DateFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'boolean') return <BoolFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (uniqCount <= 50)       return <CatFilter     col={col} ds={ds} pal={pal}  onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    return                            <TextFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+  }
 
   return (
     <div className={s.fcCard + (isActive ? ' ' + s.fcCardActive : '')}>
       <div className={s.fcHd} onClick={() => setOpen(v => !v)}>
-        <span className={s.typeBadge + ' ' + typeClass}>{typeLabel}</span>
+        <span className={s.typeBadge + ' ' + s[typeCls]}>{typeLabel}</span>
         <span className={s.fcName}>{col}</span>
         <span className={s.fcMeta}>{uniqCount.toLocaleString()} unique</span>
         {isActive && <span className={s.fcDot} />}
@@ -332,14 +487,7 @@ function ColFilterCard ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
           <path d="M4 6l4 4 4-4"/>
         </svg>
       </div>
-
-      {open && (
-        colType === 'numeric'
-          ? <NumericFilter col={col} ds={ds} pal={pal} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-          : uniqCount <= 50
-            ? <CatFilter    col={col} ds={ds} pal={pal} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-            : <TextFilter   col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-      )}
+      {open && renderWidget()}
     </div>
   )
 }
