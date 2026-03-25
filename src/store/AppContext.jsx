@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react'
-import { makeDS, genHousing, genWorld, genSales, genStocks } from '../lib/data'
+import { makeDS, genHousing, genWorld, genSales, genStocks, uid } from '../lib/data'
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 const init = {
   tabs:       [],        // dataset objects
+  workspaces: [],        // { id, name }[]
   activeId:   null,      // active tab id
   view:       'table',   // 'table' | 'graph'
   panelOpen:  false,
@@ -28,13 +29,43 @@ function reducer (state, action) {
   switch (action.type) {
 
     case 'ADD_TAB': {
-      const ds = { ...action.ds, open: true }
+      const ds = { ...action.ds, open: true, workspaceId: action.ds.workspaceId ?? null }
       return {
         ...state,
         tabs:     [...state.tabs, ds],
         activeId: ds.id,
       }
     }
+
+    case 'ADD_WORKSPACE': {
+      const ws = { id: uid(), name: action.name.trim() }
+      return { ...state, workspaces: [...state.workspaces, ws] }
+    }
+
+    case 'RENAME_WORKSPACE':
+      return {
+        ...state,
+        workspaces: state.workspaces.map(w =>
+          w.id === action.id ? { ...w, name: action.name.trim() } : w
+        ),
+      }
+
+    case 'DELETE_WORKSPACE':
+      return {
+        ...state,
+        workspaces: state.workspaces.filter(w => w.id !== action.id),
+        tabs: state.tabs.map(t =>
+          t.workspaceId === action.id ? { ...t, workspaceId: null } : t
+        ),
+      }
+
+    case 'SET_TAB_WORKSPACE':
+      return {
+        ...state,
+        tabs: state.tabs.map(t =>
+          t.id === action.tabId ? { ...t, workspaceId: action.workspaceId } : t
+        ),
+      }
 
     case 'CLOSE_TAB': {
       const tabs = state.tabs.map(t => t.id === action.id ? { ...t, open: false } : t)

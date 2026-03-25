@@ -105,6 +105,118 @@
 }
 .item:hover .reopenIco { opacity: 1; }
 
+/* ── Workspace sections ── */
+.wsSection { padding: 10px 10px 2px; user-select: none; }
+
+.wsHeader {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 2px; margin-bottom: 3px;
+  cursor: pointer; border-radius: 5px;
+  transition: background var(--ease);
+}
+.wsHeader:hover { background: var(--bg4); }
+
+.wsChev { color: var(--tx3); flex-shrink: 0; transition: transform var(--ease); }
+.wsChevCollapsed { transform: rotate(-90deg); }
+
+.wsLabel {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 9.5px; font-weight: 600; color: var(--tx3);
+  text-transform: uppercase; letter-spacing: .9px;
+}
+
+.wsRenameInput {
+  flex: 1; min-width: 0;
+  background: var(--bg4); border: 1px solid var(--ac);
+  border-radius: 4px; padding: 2px 5px; outline: none;
+  color: var(--tx1); font: 600 9.5px/1.5 var(--f);
+  letter-spacing: .5px; text-transform: uppercase;
+}
+
+.wsCount {
+  font-size: 9px; color: var(--tx3); font-family: var(--m);
+  background: var(--bg5); border-radius: 3px; padding: 1px 5px; flex-shrink: 0;
+}
+
+.wsMore {
+  opacity: 0; width: 16px; height: 16px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tx3); background: none; border: none; border-radius: 3px;
+  cursor: pointer; transition: opacity .1s, background .1s, color .1s;
+}
+.wsHeader:hover .wsMore { opacity: 1; }
+.wsMore:hover { background: var(--bg5); color: var(--tx1); }
+
+.wsEmpty {
+  font-size: 11px; color: var(--tx3); padding: 3px 10px 6px 14px;
+  font-style: italic; opacity: .6;
+}
+
+/* ── Move-to-workspace button (appears on item hover) ── */
+.moveBtn {
+  opacity: 0; width: 16px; height: 16px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tx3); background: none; border: none; border-radius: 3px;
+  cursor: pointer; transition: opacity .1s, background .1s, color .1s;
+}
+.item:hover .moveBtn { opacity: 1; }
+.moveBtn:hover { background: var(--bg5); color: var(--tx1); }
+
+/* ── Fixed-position dropdown menus ── */
+.fixedMenu {
+  position: fixed; z-index: 600;
+  background: var(--bg3); border: 1px solid var(--bd2);
+  border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  overflow: hidden; min-width: 160px;
+  animation: fadeUp .1s ease;
+}
+
+.menuHd {
+  font-size: 10px; font-weight: 600; color: var(--tx3);
+  text-transform: uppercase; letter-spacing: .7px;
+  padding: 8px 12px 4px;
+}
+
+.menuItem {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; width: 100%;
+  background: none; border: none; cursor: pointer;
+  font: 500 12px/1 var(--f); color: var(--tx2); text-align: left;
+  transition: background var(--ease), color var(--ease);
+}
+.menuItem:hover { background: var(--bg4); color: var(--tx1); }
+
+.menuItemDanger { color: var(--tx3); }
+.menuItemDanger:hover { background: rgba(244,63,94,.08) !important; color: #fda4af !important; }
+
+.menuDivider { height: 1px; background: var(--bd2); margin: 3px 0; }
+.menuCheck { margin-left: auto; color: var(--ac2); }
+
+/* ── New workspace input + button ── */
+.newWsArea { padding: 8px 10px 4px; }
+
+.newWsRow {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg3); border: 1px solid var(--ac);
+  border-radius: 6px; padding: 5px 8px;
+}
+
+.newWsInput {
+  flex: 1; min-width: 0;
+  background: none; border: none; outline: none;
+  color: var(--tx1); font: 12px/1 var(--f);
+}
+.newWsInput::placeholder { color: var(--tx3); }
+
+.newWsBtn {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 5px 8px; border-radius: 6px;
+  background: none; border: 1px dashed var(--bd2);
+  font: 500 11.5px/1 var(--f); color: var(--tx3);
+  cursor: pointer; transition: all var(--ease);
+}
+.newWsBtn:hover { border-color: var(--bd3); color: var(--tx2); background: var(--bg4); }
+
 /* ── Empty state ── */
 .emptyState {
   display: flex; flex-direction: column; align-items: center;
