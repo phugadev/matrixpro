@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useApp } from '../store/AppContext'
-import { fmtCell, fmtN, detectColType, parseDate, fmtDate, parseNumeric } from '../lib/data'
+import { fmtCell, fmtN, detectColType, buildCatColorMap, parseDate, fmtDate, parseNumeric } from '../lib/data'
 import { PALETTES } from '../lib/constants'
 import s from './DataTable.module.css'
 
@@ -125,6 +125,17 @@ export default function DataTable ({ ds, compact = false }) {
     ds.cols.forEach(col => { out[col] = detectColType(ds, col) })
     return out
   }, [ds])
+
+  const catColorMaps = useMemo(() => {
+    const out = {}
+    ds.cols.forEach(col => {
+      if (colTypes[col] === 'category') {
+        const unique = new Set(ds.rows.map(r => String(r[col] ?? '')).filter(Boolean))
+        out[col] = buildCatColorMap(unique)
+      }
+    })
+    return out
+  }, [ds, colTypes])
 
   const rows = useMemo(() => {
     const filtered = applyFilters(ds.rows, ds.filters)
@@ -420,7 +431,7 @@ export default function DataTable ({ ds, compact = false }) {
                     </button>
                   </td>
                   {visibleCols.map(col => {
-                    const cell        = fmtCell(row[col], colTypes[col])
+                    const cell        = fmtCell(row[col], colTypes[col], catColorMaps[col])
                     const nm          = numMax[col]
                     const pct         = nm ? Math.abs(parseNumeric(row[col]) || 0) / nm.max * 100 : 0
                     const isEditCell  = isEditRow && editingCell?.col === col

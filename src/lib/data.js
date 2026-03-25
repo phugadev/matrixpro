@@ -1,4 +1,4 @@
-import { TAB_COLORS, PILL_STYLES, CATEGORY_PALETTE } from './constants'
+import { PALETTES, hexAlpha } from './constants'
 
 // ─── uid ─────────────────────────────────────────────────────────────────────
 export function uid () {
@@ -13,24 +13,32 @@ export function fmtN (n) {
   return Number.isInteger(n) ? n.toLocaleString() : parseFloat(n).toFixed(2)
 }
 
-// Deterministic color for any category value — no hardcoding needed
-function hashStr (s) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-export function getCategoryStyle (value) {
-  return CATEGORY_PALETTE[hashStr(String(value)) % CATEGORY_PALETTE.length]
+// Build a { value → { color, bg } } map for a category column.
+// Values are sorted alphabetically so the assignment is deterministic regardless of row order.
+// Using positional assignment (not hashing) means no two distinct values share a color.
+export function buildCatColorMap (uniqueValues) {
+  const sorted = [...uniqueValues].sort()
+  const map = {}
+  sorted.forEach((v, i) => {
+    const color = PALETTES[0][i % PALETTES[0].length]
+    map[v] = { color, bg: hexAlpha(color, 0.13) }
+  })
+  return map
 }
 
-export function fmtCell (v, colType) {
+export function fmtCell (v, colType, catColorMap) {
   if (v === undefined || v === null || v === '') return '—'
+  if (colType === 'boolean') {
+    const isTrue = /^(true|yes)$/i.test(String(v).trim())
+    const color  = isTrue ? PALETTES[0][2] : PALETTES[0][4]  // green : red
+    return { type: 'pill', bg: hexAlpha(color, 0.12), color, label: String(v) }
+  }
   if (colType === 'category') {
-    const { bg, color } = getCategoryStyle(String(v))
+    const entry = catColorMap?.[String(v)]
+    const color = entry?.color ?? PALETTES[0][0]
+    const bg    = entry?.bg    ?? hexAlpha(PALETTES[0][0], 0.13)
     return { type: 'pill', bg, color, label: String(v) }
   }
-  const pill = PILL_STYLES[String(v)]
-  if (pill) return { type: 'pill', bg: pill[0], color: pill[1], label: String(v) }
   if (colType === 'date') return { type: 'date', label: fmtDate(v) }
   const n = parseNumeric(v)
   if (!isNaN(n) && String(v).trim() !== '') return { type: 'num', label: fmtN(n) }
@@ -116,7 +124,7 @@ export function makeDS (name, rows, existingTabCount = 0) {
     filters:      {},
     filterLabels: {},
     savedGraphs:  [],
-    color:        TAB_COLORS[existingTabCount % TAB_COLORS.length],
+    color:        PALETTES[0][existingTabCount % PALETTES[0].length],
   }
 }
 
