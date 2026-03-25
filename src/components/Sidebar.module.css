@@ -84,7 +84,7 @@
 .scroll::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
 
 /* ── Section groups ── */
-.group { padding: 12px 10px 2px; }
+.group { padding: 12px 10px 2px; user-select: none; }
 
 .groupLabel {
   font-size: 9.5px; font-weight: 600; color: var(--tx3);
