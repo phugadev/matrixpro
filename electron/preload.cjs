@@ -14,7 +14,8 @@ contextBridge.exposeInMainWorld('MP', {
   savePNG:  (o)    => ipcRenderer.invoke('dialog:savePNG', o),
 
   db: {
-    upsertDataset: (ds)             => ipcRenderer.invoke('db:upsertDataset', ds),
+    upsertDataset:   (ds)           => ipcRenderer.invoke('db:upsertDataset', ds),
+    setDatasetOpen:  (o)            => ipcRenderer.invoke('db:setDatasetOpen', o),
     loadDatasets:  ()               => ipcRenderer.invoke('db:loadDatasets'),
     deleteDataset: (id)             => ipcRenderer.invoke('db:deleteDataset', id),
     saveGraph:     (dsId, t, cfg)   => ipcRenderer.invoke('db:saveGraph', { datasetId: dsId, title: t, config: cfg }),

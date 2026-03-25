@@ -66,9 +66,11 @@ function Inner () {
   const [groupFn,     setGroupFn]     = useState('sum')
   const [graphName,   setGraphName]   = useState('Untitled graph')
   const [dropping,    setDropping]    = useState(false)
-  const dropCount  = useRef(0)
+  const dropCount    = useRef(0)
   const fileInputRef = useRef(null)
-  const didInit    = useRef(false)
+  const didInit      = useRef(false)
+  const persistedIds = useRef(new Set())   // IDs upserted to DB
+  const openStates   = useRef(new Map())   // id → last-persisted open state
 
   const ds = getDS()
 
@@ -81,6 +83,10 @@ function Inner () {
       try {
         const saved = await window.MP.db.loadDatasets()
         if (!saved.length) return  // empty DB → Welcome screen
+        saved.forEach(r => {
+          persistedIds.current.add(r.id)
+          openStates.current.set(r.id, r.open !== false)
+        })
         dispatch({
           type: 'RESTORE_TABS',
           tabs: saved.map(r => ({ ...r, filters: {}, filterLabels: {}, savedGraphs: [] })),
@@ -88,6 +94,30 @@ function Inner () {
       } catch {}  // on error → Welcome screen
     })()
   }, [])
+
+  // ── Persist new tabs to SQLite ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isElectron) return
+    state.tabs.forEach(t => {
+      if (!persistedIds.current.has(t.id)) {
+        persistedIds.current.add(t.id)
+        openStates.current.set(t.id, true)
+        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows }).catch(() => {})
+      }
+    })
+  }, [state.tabs])
+
+  // ── Persist open/close state changes to SQLite ──────────────────────────────
+  useEffect(() => {
+    if (!isElectron) return
+    state.tabs.forEach(t => {
+      const openVal = t.open !== false
+      if (openStates.current.has(t.id) && openStates.current.get(t.id) !== openVal) {
+        openStates.current.set(t.id, openVal)
+        window.MP.db.setDatasetOpen({ id: t.id, open: openVal }).catch(() => {})
+      }
+    })
+  }, [state.tabs])
 
   // ── Set up axes when active dataset or view changes ─────────────────────────
   useEffect(() => {

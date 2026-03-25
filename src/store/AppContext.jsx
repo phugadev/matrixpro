@@ -98,12 +98,14 @@ function reducer (state, action) {
         sortDir: state.sortCol === action.col ? state.sortDir * -1 : 1,
       }
 
-    case 'RESTORE_TABS':
+    case 'RESTORE_TABS': {
+      const openTab = [...action.tabs].reverse().find(t => t.open !== false)
       return {
         ...state,
-        tabs:     action.tabs.map(t => ({ ...t, open: true })),
-        activeId: action.tabs.length ? action.tabs[action.tabs.length - 1].id : null,
+        tabs:     action.tabs,
+        activeId: openTab?.id ?? null,
       }
+    }
 
     default:
       return state

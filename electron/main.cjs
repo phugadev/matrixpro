@@ -34,7 +34,8 @@ async function openDB () {
         color TEXT NOT NULL,
         cols  TEXT NOT NULL,
         data  TEXT NOT NULL,
-        ts    INTEGER NOT NULL
+        ts    INTEGER NOT NULL,
+        open  INTEGER NOT NULL DEFAULT 1
       );
       CREATE TABLE IF NOT EXISTS graphs (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +45,8 @@ async function openDB () {
         ts         INTEGER NOT NULL
       );
     `)
+    // migrate: add open column if it doesn't exist yet
+    try { db.run('ALTER TABLE datasets ADD COLUMN open INTEGER DEFAULT 1') } catch {}
     flush()
   } catch (e) {
     console.warn('[DB] sql.js unavailable:', e.message)
@@ -61,20 +64,27 @@ function flush () {
 ipcMain.handle('db:upsertDataset', (_, { id, name, color, cols, rows }) => {
   if (!db) return false
   db.run(
-    'INSERT OR REPLACE INTO datasets (id,name,color,cols,data,ts) VALUES (?,?,?,?,?,?)',
-    [id, name, color, JSON.stringify(cols), JSON.stringify(rows), Date.now()]
+    'INSERT OR REPLACE INTO datasets (id,name,color,cols,data,ts,open) VALUES (?,?,?,?,?,?,?)',
+    [id, name, color, JSON.stringify(cols), JSON.stringify(rows), Date.now(), 1]
   )
+  flush()
+  return true
+})
+
+ipcMain.handle('db:setDatasetOpen', (_, { id, open }) => {
+  if (!db) return false
+  db.run('UPDATE datasets SET open=? WHERE id=?', [open ? 1 : 0, id])
   flush()
   return true
 })
 
 ipcMain.handle('db:loadDatasets', () => {
   if (!db) return []
-  const stmt = db.prepare('SELECT id,name,color,cols,data FROM datasets ORDER BY ts ASC')
+  const stmt = db.prepare('SELECT id,name,color,cols,data,COALESCE(open,1) as open FROM datasets ORDER BY ts ASC')
   const out  = []
   while (stmt.step()) {
     const r = stmt.getAsObject()
-    out.push({ id: r.id, name: r.name, color: r.color, cols: JSON.parse(r.cols), rows: JSON.parse(r.data) })
+    out.push({ id: r.id, name: r.name, color: r.color, cols: JSON.parse(r.cols), rows: JSON.parse(r.data), open: r.open !== 0 })
   }
   stmt.free()
   return out
