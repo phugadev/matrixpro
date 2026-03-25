@@ -18,19 +18,26 @@ export function fmtCell (v, colType) {
   const pill = PILL_STYLES[String(v)]
   if (pill) return { type: 'pill', bg: pill[0], color: pill[1], label: String(v) }
   if (colType === 'date') return { type: 'date', label: fmtDate(v) }
-  const n = parseFloat(v)
+  const n = parseNumeric(v)
   if (!isNaN(n) && String(v).trim() !== '') return { type: 'num', label: fmtN(n) }
   return { type: 'text', label: String(v) }
+}
+
+// ─── Numeric normalisation (strips $€£¥₹, commas, trailing %) ────────────────
+export function parseNumeric (v) {
+  const s = String(v).trim().replace(/^[$€£¥₹]/, '').replace(/,/g, '').replace(/%$/, '')
+  return Number(s)
 }
 
 // ─── Column type detection ───────────────────────────────────────────────────
 export function isNumericCol (ds, col) {
   const sample = ds.rows.slice(0, 20).filter(r => r[col] !== '' && r[col] != null)
-  return sample.length > 0 && sample.every(r => !isNaN(Number(String(r[col]).trim())))
+  return sample.length > 0 && sample.every(r => !isNaN(parseNumeric(r[col])))
 }
 
 const DATE_RE = [
   /^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/,                                                          // 2023-01-15 / ISO datetime
+  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/,                                                              // 2023-01-15 10:30:00 (space separator)
   /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,                                                                 // 1/15/2023
   /^\d{1,2}-\d{1,2}-\d{4}$/,                                                                     // 01-15-2023
   /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}$/i,                    // Jan 15, 2023

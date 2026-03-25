@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useApp } from '../store/AppContext'
 import { PALETTES } from '../lib/constants'
-import { isNumericCol, isDateCol, parseDate } from '../lib/data'
+import { isNumericCol, isDateCol, parseDate, parseNumeric } from '../lib/data'
 import DataTable from './DataTable'
 import s from './ChartView.module.css'
 
@@ -71,7 +71,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
 
   const allRows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)
   const rows    = allRows.slice(0, 500)
-  const isXnum  = rows.slice(0, 20).every(r => !isNaN(Number(String(r[xCol]).trim())))
+  const isXnum  = rows.slice(0, 20).filter(r => r[xCol] !== '' && r[xCol] != null).every(r => !isNaN(parseNumeric(r[xCol])))
   const isXdate = !isXnum && isDateCol(ds, xCol)
   const isLine  = ct === 'line', isArea = ct === 'area'
   const isBar   = ct === 'bar',  isStacked = ct === 'bar-stacked'
@@ -83,15 +83,15 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
   let labels = [], datasets = []
 
   if (isScatter || isBubble) {
-    const maxSz = szCol ? (Math.max(...rows.map(r => parseFloat(r[szCol]) || 0)) || 1) : 1
+    const maxSz = szCol ? (Math.max(...rows.map(r => parseNumeric(r[szCol]) || 0)) || 1) : 1
     labels = []
     datasets = [{
       label: yCol,
       data: rows.map(r => ({
-        x: parseFloat(r[xCol]) || 0,
-        y: parseFloat(r[yCol]) || 0,
+        x: parseNumeric(r[xCol]) || 0,
+        y: parseNumeric(r[yCol]) || 0,
         r: isBubble && szCol
-          ? Math.max(3, Math.min(26, (parseFloat(r[szCol]) || 0) / maxSz * 22))
+          ? Math.max(3, Math.min(26, (parseNumeric(r[szCol]) || 0) / maxSz * 22))
           : 5,
       })),
       backgroundColor: pal[0] + 'aa',
@@ -103,7 +103,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
     rows.forEach(r => {
       const k = String(r[xCol]).slice(0, 25)
       if (!agg[k]) agg[k] = []
-      agg[k].push(parseFloat(r[yCol]) || 0)
+      agg[k].push(parseNumeric(r[yCol]) || 0)
     })
     const keys = Object.keys(agg).slice(0, 12)
     labels = keys
@@ -119,7 +119,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
     const agg = {}
     rows.forEach(r => {
       const k = String(r[xCol])
-      agg[k] = (agg[k] || []).concat(parseFloat(r[yCol]) || 0)
+      agg[k] = (agg[k] || []).concat(parseNumeric(r[yCol]) || 0)
     })
     const keys = Object.keys(agg).slice(0, 10)
     labels = keys
@@ -146,7 +146,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
         labSet.forEach(l => (agg[l] = []))
         rows.filter(r => String(r[grpCol]) === g).forEach(r => {
           const k = String(r[xCol])
-          if (agg[k] !== undefined) agg[k].push(parseFloat(r[yCol]) || 0)
+          if (agg[k] !== undefined) agg[k].push(parseNumeric(r[yCol]) || 0)
         })
         return {
           label: g,
@@ -161,10 +161,10 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
       rows.forEach(r => {
         const k = String(r[xCol])
         if (!agg[k])  agg[k]  = []
-        agg[k].push(parseFloat(r[yCol]) || 0)
+        agg[k].push(parseNumeric(r[yCol]) || 0)
         if (y2Col) {
           if (!agg2[k]) agg2[k] = []
-          agg2[k].push(parseFloat(r[y2Col]) || 0)
+          agg2[k].push(parseNumeric(r[y2Col]) || 0)
         }
       })
       labels = Object.keys(agg).slice(0, 24)
@@ -195,7 +195,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
         labSet.forEach(l => (agg[l] = []))
         rows.filter(r => String(r[y2Col]) === g).forEach(r => {
           const k = String(r[xCol])
-          if (agg[k] !== undefined) agg[k].push(parseFloat(r[yCol]) || 0)
+          if (agg[k] !== undefined) agg[k].push(parseNumeric(r[yCol]) || 0)
         })
         return {
           label: g,
@@ -210,10 +210,10 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
       rows.forEach(r => {
         const k = String(r[xCol])
         if (!agg[k])  agg[k]  = []
-        agg[k].push(parseFloat(r[yCol]) || 0)
+        agg[k].push(parseNumeric(r[yCol]) || 0)
         if (y2Col && !y2IsCat) {
           if (!agg2[k]) agg2[k] = []
-          agg2[k].push(parseFloat(r[y2Col]) || 0)
+          agg2[k].push(parseNumeric(r[y2Col]) || 0)
         }
       })
       const rawLabels = Object.keys(agg).slice(0, 28)
@@ -242,8 +242,8 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
   } else {
     // numeric X axis
     labels = rows.map(r => r[xCol])
-    const data  = rows.map(r => parseFloat(r[yCol])  || 0)
-    const data2 = y2Col ? rows.map(r => parseFloat(r[y2Col]) || 0) : null
+    const data  = rows.map(r => parseNumeric(r[yCol])  || 0)
+    const data2 = y2Col ? rows.map(r => parseNumeric(r[y2Col]) || 0) : null
 
     datasets = [{
       label: yCol, data,

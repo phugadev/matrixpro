@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useApp } from '../store/AppContext'
-import { fmtCell, fmtN, isNumericCol, detectColType, parseDate, fmtDate } from '../lib/data'
+import { fmtCell, fmtN, isNumericCol, detectColType, parseDate, fmtDate, parseNumeric } from '../lib/data'
 import { PALETTES } from '../lib/constants'
 import s from './DataTable.module.css'
 
@@ -16,7 +16,7 @@ function applySort (rows, col, dir, colType) {
       const at = parseDate(av).getTime(), bt = parseDate(bv).getTime()
       if (!isNaN(at) && !isNaN(bt)) return (at - bt) * dir
     }
-    const an = parseFloat(av), bn = parseFloat(bv)
+    const an = parseNumeric(av), bn = parseNumeric(bv)
     return !isNaN(an) && !isNaN(bn) ? (an - bn) * dir : String(av).localeCompare(String(bv)) * dir
   })
 }
@@ -64,7 +64,7 @@ export default function DataTable ({ ds, compact = false }) {
     const out = {}
     ds.cols.forEach((col, ci) => {
       if (colTypes[col] === 'numeric') {
-        const vals = ds.rows.map(r => Math.abs(parseFloat(r[col]) || 0))
+        const vals = ds.rows.map(r => Math.abs(parseNumeric(r[col]) || 0))
         out[col] = { max: Math.max(...vals) || 1, color: pal[ci % pal.length] }
       }
     })
@@ -88,7 +88,7 @@ export default function DataTable ({ ds, compact = false }) {
                 const arr = isActive ? (state.sortDir === 1 ? ' ↑' : ' ↓') : ''
                 let metaEl = null
                 if (ct === 'numeric') {
-                  const ns = vals.map(Number)
+                  const ns = vals.map(parseNumeric)
                   metaEl = <>Min <b>{fmtN(Math.min(...ns))}</b> Max <b>{fmtN(Math.max(...ns))}</b></>
                 } else if (ct === 'date') {
                   const sorted = [...vals].sort((a, b) => parseDate(a) - parseDate(b))
@@ -124,7 +124,7 @@ export default function DataTable ({ ds, compact = false }) {
                 {ds.cols.map(col => {
                   const cell = fmtCell(row[col], colTypes[col])
                   const nm = numMax[col]
-                  const pct = nm ? Math.abs(parseFloat(row[col]) || 0) / nm.max * 100 : 0
+                  const pct = nm ? Math.abs(parseNumeric(row[col]) || 0) / nm.max * 100 : 0
                   return (
                     <td key={col} className={s.td}>
                       {nm && (
