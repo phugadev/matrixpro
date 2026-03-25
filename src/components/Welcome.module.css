@@ -1,5 +1,7 @@
 .wrap { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px; padding: 40px; }
-.mark { font-size: 52px; opacity: .1; line-height: 1; }
+
+.hero    { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.heroIco { color: var(--tx3); opacity: .25; }
 .h    { font-size: 24px; font-weight: 700; letter-spacing: -.6px; }
 .sub  { font-size: 13px; color: var(--tx2); text-align: center; line-height: 1.7; }
 
@@ -31,6 +33,7 @@
 .cardBody { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ct       { font-size: 13px; font-weight: 600; color: var(--tx1); }
 .cd       { font-size: 11.5px; color: var(--tx2); line-height: 1.4; }
+.cmeta    { font-size: 10.5px; color: var(--tx3); font-family: var(--m); margin-top: 1px; }
 
 .shortcuts {
   display: flex;

@@ -391,7 +391,7 @@ function Inner () {
     <div className={s.app}>
       <DropOverlay visible={dropping} />
 
-      <Sidebar />
+      <Sidebar onUpload={triggerUpload} />
 
       <div className={s.main}>
         <Titlebar onUpload={triggerUpload} />

@@ -5,15 +5,13 @@
   -webkit-app-region: no-drag;
 }
 
-/* ── Wordmark zone — exact same height as the titlebar ── */
+/* ── Wordmark zone ── */
 .traffic {
   height: 38px; min-height: 38px; flex-shrink: 0;
   -webkit-app-region: drag;
   display: flex; align-items: center; justify-content: flex-start;
-  /* 76px clears the three macOS traffic-light circles + their margins */
   padding: 0 12px 0 80px;
   border-bottom: 1px solid var(--bd1);
-  /* Optically match the macOS title bar's own background */
   background: var(--bg1);
 }
 
@@ -21,38 +19,19 @@
   display: flex; align-items: center; gap: 8px;
   -webkit-app-region: no-drag;
   user-select: none;
-  /* Push the wordmark down by 1px to optically align with
-     the traffic-light circles which have a slight top bias */
   margin-top: 3.5px;
 }
-
 .wordmarkMatrix {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: -.35px;
-  color: var(--tx1);
-  line-height: 1;
+  font-size: 12.5px; font-weight: 700; letter-spacing: -.35px;
+  color: var(--tx1); line-height: 1;
 }
-
 .proBadge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .9px;
-  color: var(--ac2);
-  border: 1px solid rgba(99,102,241,.35);
-  border-radius: 4px;
-  padding: 2.5px 5px;
-  line-height: 1;
-  background: linear-gradient(
-    135deg,
-    rgba(99,102,241,.2) 0%,
-    rgba(168,85,247,.2) 100%
-  );
-  /* Vertical alignment relative to the text */
-  position: relative;
-  top: -0.5px;
+  display: inline-flex; align-items: center;
+  font-size: 8px; font-weight: 800; letter-spacing: .9px;
+  color: var(--ac2); border: 1px solid rgba(99,102,241,.35);
+  border-radius: 4px; padding: 2.5px 5px; line-height: 1;
+  background: linear-gradient(135deg, rgba(99,102,241,.2) 0%, rgba(168,85,247,.2) 100%);
+  position: relative; top: -0.5px;
 }
 
 /* ── Search ── */
@@ -70,22 +49,19 @@
 }
 .search input::placeholder { color: var(--tx3); }
 .clearQ {
-  color: var(--tx3); font-size: 11px; cursor: pointer;
-  flex-shrink: 0; border-radius: 3px; padding: 1px 3px;
+  color: var(--tx3); cursor: pointer; flex-shrink: 0;
+  border-radius: 3px; padding: 2px 3px; display: flex; align-items: center;
   transition: all .1s;
 }
 .clearQ:hover { background: var(--bg5); color: var(--tx1); }
 
 /* ── Scroll area ── */
-.scroll {
-  flex: 1; overflow-y: auto; padding-bottom: 12px;
-}
+.scroll { flex: 1; overflow-y: auto; padding-bottom: 8px; }
 .scroll::-webkit-scrollbar { width: 3px; }
 .scroll::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
 
 /* ── Section groups ── */
 .group { padding: 12px 10px 2px; user-select: none; }
-
 .groupLabel {
   font-size: 9.5px; font-weight: 600; color: var(--tx3);
   text-transform: uppercase; letter-spacing: .9px;
@@ -100,34 +76,60 @@
   font-size: 12.5px; overflow: hidden; white-space: nowrap;
 }
 .item:hover { background: var(--bg4); color: var(--tx1); }
-
-/* Active — applied as an additional class */
 .active { background: var(--ac-lo) !important; color: var(--ac2) !important; }
 
 .dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
+.rowCount {
+  font-size: 10px; color: var(--tx3); font-family: var(--m);
+  flex-shrink: 0; transition: opacity .1s;
+}
+.item:hover .rowCount { opacity: 0; }
+
 .rm {
-  opacity: 0; width: 14px; height: 14px; border-radius: 3px;
+  opacity: 0; width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  color: var(--tx3); font-size: 10px; flex-shrink: 0;
-  transition: all .1s;
+  color: var(--tx3); transition: all .1s;
 }
 .item:hover .rm { opacity: 1; }
 .rm:hover { background: var(--bg5); color: var(--tx1); }
 
-/* Closed dataset — still visible but dimmed, clickable to reopen */
+/* Closed dataset */
 .closed { opacity: 0.45; }
 .closed:hover { opacity: 0.8; }
-
 .reopenIco {
-  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   color: var(--tx3); opacity: 0; transition: opacity .1s;
 }
 .item:hover .reopenIco { opacity: 1; }
 
-.empty {
-  font-size: 11.5px; color: var(--tx3);
-  padding: 4px 10px 8px; line-height: 1.5;
+/* ── Empty state ── */
+.emptyState {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 12px 16px; gap: 8px; text-align: center;
+}
+.emptyIco { color: var(--tx3); opacity: .3; }
+.emptyText { font-size: 12.5px; font-weight: 500; color: var(--tx2); }
+.emptyHint { font-size: 11px; color: var(--tx3); line-height: 1.5; }
+
+.empty { font-size: 11.5px; color: var(--tx3); padding: 4px 10px 8px; line-height: 1.5; }
+
+/* ── Footer ── */
+.footer {
+  padding: 8px 10px; border-top: 1px solid var(--bd1); flex-shrink: 0;
+}
+.openBtn {
+  width: 100%; display: flex; align-items: center; gap: 7px;
+  padding: 7px 10px; border-radius: 7px;
+  background: var(--bg3); border: 1px solid var(--bd2);
+  font: 500 12px/1 var(--f); color: var(--tx2); cursor: pointer;
+  transition: all var(--ease);
+}
+.openBtn:hover { background: var(--bg4); color: var(--tx1); border-color: var(--bd3); }
+.openBtn svg { flex-shrink: 0; }
+.kbd {
+  margin-left: auto; background: var(--bg5); border: 1px solid var(--bd3);
+  border-radius: 4px; padding: 1px 5px; font: 10px/1.6 var(--m); color: var(--tx3);
 }
