@@ -56,7 +56,7 @@ export default function Welcome({ onSample, onUpload }) {
       </div>
 
       {/* Shortcuts */}
-      <span className={s.shortcutsLabel}>Shortcuts ⌘</span>
+      <span className={s.shortcutsLabel}>⌘ Shortcut Palette ⌘</span>
       <div className={s.shortcuts}>
         {SHORTCUTS.map(({ keys, label }) => (
           <span key={keys} className={s.shortcut}>
