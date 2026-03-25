@@ -56,6 +56,7 @@ function reducer (state, action) {
       return {
         ...state,
         activeId: action.id,
+        view: 'table',
         tabs: state.tabs.map(t => t.id === action.id ? { ...t, open: true } : t),
       }
 
