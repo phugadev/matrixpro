@@ -5,6 +5,7 @@ const SAMPLES = [
   { key: 'housing', icon: '🏠', title: 'CA Housing',       desc: 'Real estate data across California' },
   { key: 'world',   icon: '🌍', title: 'World Population', desc: 'GDP & life expectancy by country' },
   { key: 'sales',   icon: '📊', title: "Sales '23",        desc: 'Monthly sales by rep, region & product' },
+  { key: 'stocks',  icon: '📈', title: 'Tech Stocks',      desc: 'Price & volume for major tech companies' },
 ]
 
 export default function Welcome ({ onSample, onUpload }) {

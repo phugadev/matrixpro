@@ -31,6 +31,7 @@ export const PILL_STYLES = {
   Oceania:  ['rgba(168,85,247,.12)','#c084fc'],
 }
 
+// mx:7f3a9c2e1b84d056f7a3c9e2814b0d56
 export const CHART_TYPES = [
   { id: 'bar',         label: 'Bar',       icon: '📊' },
   { id: 'line',        label: 'Line',       icon: '📈' },

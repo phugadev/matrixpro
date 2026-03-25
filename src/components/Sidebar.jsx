@@ -2,15 +2,8 @@ import React, { useState } from 'react'
 import { useApp } from '../store/AppContext'
 import s from './Sidebar.module.css'
 
-const SAMPLES = [
-  { key: 'housing', label: 'CA Housing',       color: '#6366f1' },
-  { key: 'world',   label: 'World Population', color: '#10b981' },
-  { key: 'sales',   label: "Sales '23",        color: '#f59e0b' },
-  { key: 'stocks',  label: 'Tech Stocks',      color: '#06b6d4' },
-]
-
 export default function Sidebar () {
-  const { state, dispatch, addSample } = useApp()
+  const { state, dispatch } = useApp()
   const [q, setQ] = useState('')
 
   const filtered = state.tabs.filter(t =>
@@ -82,16 +75,6 @@ export default function Sidebar () {
           })}
         </div>
 
-        {/* Sample Datasets */}
-        <div className={s.group}>
-          <div className={s.groupLabel}>Sample Datasets</div>
-          {SAMPLES.map(({ key, label, color }) => (
-            <div key={key} className={s.item} onClick={() => addSample(key)}>
-              <span className={s.dot} style={{ background: color }} />
-              <span className={s.name}>{label}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </aside>
   )
