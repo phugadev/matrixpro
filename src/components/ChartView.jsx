@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useApp } from '../store/AppContext'
 import { PALETTES } from '../lib/constants'
-import { isNumericCol, isDateCol, parseDate, parseNumeric } from '../lib/data'
+import { isNumericCol, isDateCol, parseDate, parseNumeric, fmtN } from '../lib/data'
 import DataTable from './DataTable'
 import s from './ChartView.module.css'
 
@@ -298,12 +298,12 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
     const isRadar   = ct === 'radar'
     const isHBar       = isBarType && state.barOrientation === 'horizontal'
     const hasY2       = !!state.axisY2
-    // Categorical Y2 on bar = grouped series, no second axis scale needed
     const y2IsNumeric = hasY2 && isNumericCol(ds, state.axisY2)
     const showGrid  = state.showGrid
     const gridC     = showGrid ? 'rgba(255,255,255,.05)' : 'transparent'
     const tickC     = '#4a4a5c'
     const legendC   = '#9090a8'
+    const axisLblC  = '#6b6b80'
 
     const cjsType =
       isBarType           ? 'bar'       :
@@ -313,11 +313,39 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
       ct === 'radar'      ? 'radar'     :
       ct === 'polar'      ? 'polarArea' : 'line'
 
+    // Inline data-labels plugin
+    const dataLabelsPlugin = {
+      id: 'dataLabels',
+      afterDatasetsDraw (chart) {
+        if (!state.showLabels) return
+        const { ctx } = chart
+        chart.data.datasets.forEach((ds, di) => {
+          const meta = chart.getDatasetMeta(di)
+          if (meta.hidden) return
+          meta.data.forEach((el, idx) => {
+            const raw = ds.data[idx]
+            if (raw == null) return
+            const val = typeof raw === 'object' ? raw.y : raw
+            if (val == null || val === 0) return
+            const label = isNaN(val) ? String(val) : fmtN(val)
+            ctx.save()
+            ctx.font = "500 10px 'JetBrains Mono',monospace"
+            ctx.fillStyle = '#c8c8d8'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'bottom'
+            ctx.fillText(label, el.x, el.y - 4)
+            ctx.restore()
+          })
+        })
+      },
+    }
+
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
 
     chartRef.current = new Chart(canvasRef.current.getContext('2d'), {
       type: cjsType,
       data,
+      plugins: [dataLabelsPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -334,12 +362,23 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
             },
           },
           tooltip: {
-            backgroundColor: 'rgba(18,18,22,.97)',
-            borderColor: 'rgba(255,255,255,.08)', borderWidth: 1,
-            titleColor: '#eeeef2', bodyColor: '#86869a',
+            backgroundColor: 'rgba(15,15,20,.96)',
+            borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+            titleColor: '#eeeef2', bodyColor: '#9090a8',
             titleFont: { family: "'Inter',sans-serif", size: 12, weight: '600' },
             bodyFont:  { family: "'JetBrains Mono',monospace", size: 11 },
-            padding: 10, cornerRadius: 8,
+            padding: { top: 10, bottom: 10, left: 14, right: 14 },
+            cornerRadius: 10,
+            displayColors: true,
+            boxWidth: 8, boxHeight: 8,
+            callbacks: {
+              label (ctx) {
+                const raw = ctx.raw
+                const v = typeof raw === 'object' ? raw.y ?? raw.r : raw
+                const formatted = (typeof v === 'number' && !isNaN(v)) ? fmtN(v) : v
+                return ` ${ctx.dataset.label}: ${formatted}`
+              },
+            },
           },
         },
         scales: isRadial ? {} : isRadar ? {
@@ -353,12 +392,26 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
             stacked: isStacked,
             ticks: { color: tickC, maxTicksLimit: 14, font: { family: "'JetBrains Mono'", size: 10 } },
             grid:  { color: gridC },
+            title: {
+              display: !!xCol,
+              text: xCol,
+              color: axisLblC,
+              font: { family: "'Inter',sans-serif", size: 11, weight: '500' },
+              padding: { top: 6 },
+            },
           },
           y: {
             stacked: isStacked,
             ticks: { color: tickC, font: { family: "'JetBrains Mono'", size: 10 } },
             grid:  { color: gridC },
             min: isArea ? 0 : undefined,
+            title: {
+              display: !!yCol,
+              text: yCol,
+              color: axisLblC,
+              font: { family: "'Inter',sans-serif", size: 11, weight: '500' },
+              padding: { bottom: 6 },
+            },
           },
           ...(y2IsNumeric ? {
             y2: {
@@ -367,6 +420,13 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
               beginAtZero: isArea,
               ticks: { color: pal[1], font: { family: "'JetBrains Mono'", size: 10 } },
               grid: { display: false },
+              title: {
+                display: !!state.axisY2,
+                text: state.axisY2,
+                color: pal[1] + 'aa',
+                font: { family: "'Inter',sans-serif", size: 11, weight: '500' },
+                padding: { bottom: 6 },
+              },
             },
           } : {}),
         },
@@ -377,7 +437,7 @@ export default function ChartView ({ ds, graphName, onGraphNameChange, onExportP
   }, [
     ds.rows, ds.filters, state.axisX, state.axisY, state.axisY2, state.axisSz,
     state.chartType, state.barOrientation, state.palette, state.showGrid,
-    state.smoothCurves, state.aggFn,
+    state.smoothCurves, state.aggFn, state.showLabels,
   ])
 
   // Expose canvas for PNG export
