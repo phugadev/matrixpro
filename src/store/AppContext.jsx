@@ -15,7 +15,6 @@ const init = {
   axisY:      '',
   axisY2:     '',
   axisSz:     '',
-  sidebarCollapsed: false,
   showLabels: false,
   showGrid:   true,
   smoothCurves: true,

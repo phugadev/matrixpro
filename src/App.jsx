@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, Component } from 'reac
 import { AppProvider, useApp } from './store/AppContext'
 import { ToastProvider, useToast } from './components/Toast'
 import Sidebar    from './components/Sidebar'
-import TopBar     from './components/TopBar'
+import Titlebar   from './components/Titlebar'
 import Toolbar    from './components/Toolbar'
 import DataTable  from './components/DataTable'
 import ChartView  from './components/ChartView'
@@ -375,12 +375,10 @@ function Inner () {
     <div className={s.app}>
       <DropOverlay visible={dropping} />
 
-      <TopBar onUpload={triggerUpload} />
+      <Sidebar />
 
-      <div className={s.body}>
-        <Sidebar />
-
-        <div className={s.main}>
+      <div className={s.main}>
+        <Titlebar onUpload={triggerUpload} />
 
         {ds ? (
           <>
@@ -427,8 +425,7 @@ function Inner () {
         ) : (
           <Welcome onSample={addSample} onUpload={triggerUpload} />
         )}
-        </div>{/* s.main */}
-      </div>{/* s.body */}
+      </div>
 
       {/* Hidden file input (web fallback) */}
       <input
