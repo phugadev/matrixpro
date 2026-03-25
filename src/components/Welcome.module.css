@@ -23,11 +23,16 @@
 .card:active { transform: translateY(0); }
 
 .uploadCard {
-  grid-column: 1 / -1;
   border-style: dashed;
   background: transparent;
 }
 .uploadCard:hover { background: var(--ac-gl); }
+
+.scratchCard {
+  border-style: dashed;
+  background: transparent;
+}
+.scratchCard:hover { background: var(--ac-gl); }
 
 .ico      { font-size: 22px; line-height: 1; flex-shrink: 0; }
 .cardBody { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

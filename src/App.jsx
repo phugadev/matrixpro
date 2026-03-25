@@ -11,6 +11,7 @@ const SqlEditor = lazy(() => import('./components/SqlEditor'))
 import Panel      from './components/Panel'
 import Welcome    from './components/Welcome'
 import Modal      from './components/Modal'
+import NewDatasetModal from './components/NewDatasetModal'
 import s          from './App.module.css'
 import { makeDS }   from './lib/data'
 import { isNumericCol } from './lib/data'
@@ -57,6 +58,7 @@ function Inner () {
   const { state, dispatch, getDS, addSample, addTab, updateDS } = useApp()
   const toast = useToast()
 
+  const [newModal,    setNewModal]    = useState(false)
   const [saveModal,   setSaveModal]   = useState(false)
   const [renameModal, setRenameModal] = useState(false)
   const [groupModal,  setGroupModal]  = useState(false)
@@ -159,7 +161,7 @@ function Inner () {
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
     const handler = e => {
-      if (e.key === 'Escape') { setSaveModal(false); setRenameModal(false); setGroupModal(false) }
+      if (e.key === 'Escape') { setNewModal(false); setSaveModal(false); setRenameModal(false); setGroupModal(false) }
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'table' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'graph' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'sql' }) }
@@ -387,6 +389,16 @@ function Inner () {
     toast('All filters cleared')
   }, [ds, updateDS, toast])
 
+  // ── Create blank dataset from scratch ───────────────────────────────────────
+  const createScratch = useCallback((name, cols) => {
+    const newDs = makeDS(name, [], state.tabs.length)
+    newDs.cols = cols
+    newDs.rows = []
+    addTab(newDs)
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows }).catch(() => {})
+    toast(`Created "${name}"`, '✓')
+  }, [state.tabs.length, addTab, toast])
+
   return (
     <div className={s.app}>
       <DropOverlay visible={dropping} />
@@ -394,7 +406,7 @@ function Inner () {
       <Sidebar onUpload={triggerUpload} />
 
       <div className={s.main}>
-        <Titlebar onUpload={triggerUpload} />
+        <Titlebar onNew={() => setNewModal(true)} />
 
         {ds ? (
           <>
@@ -441,7 +453,7 @@ function Inner () {
             </div>
           </>
         ) : (
-          <Welcome onSample={addSample} onUpload={triggerUpload} />
+          <Welcome onSample={addSample} onUpload={triggerUpload} onScratch={() => setNewModal(true)} />
         )}
       </div>
 
@@ -453,6 +465,16 @@ function Inner () {
         style={{ display: 'none' }}
         onChange={handleFileInput}
       />
+
+      {/* New dataset modal */}
+      {newModal && (
+        <NewDatasetModal
+          onClose={() => setNewModal(false)}
+          onSample={key => { addSample(key); setNewModal(false) }}
+          onUpload={() => { setNewModal(false); triggerUpload() }}
+          onCreate={(name, cols) => { createScratch(name, cols); setNewModal(false) }}
+        />
+      )}
 
       {/* Save graph modal */}
       {saveModal && (

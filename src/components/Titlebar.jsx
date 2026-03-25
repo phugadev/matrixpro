@@ -2,7 +2,7 @@ import React from 'react'
 import { useApp } from '../store/AppContext'
 import s from './Titlebar.module.css'
 
-export default function Titlebar ({ onUpload }) {
+export default function Titlebar ({ onNew }) {
   const { state, dispatch } = useApp()
 
   return (
@@ -26,7 +26,7 @@ export default function Titlebar ({ onUpload }) {
         ))}
 
         {/* + New / Upload button */}
-        <button className={s.newBtn} onClick={onUpload} title="Open dataset (⌘O)">
+        <button className={s.newBtn} onClick={onNew} title="New dataset">
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M8 3v10M3 8h10"/>
           </svg>

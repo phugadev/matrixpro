@@ -19,7 +19,7 @@ const SHORTCUTS = [
   { keys: '⌘E', label: 'Export' },
 ]
 
-export default function Welcome({ onSample, onUpload }) {
+export default function Welcome({ onSample, onUpload, onScratch }) {
   return (
     <div className={s.wrap}>
 
@@ -49,8 +49,15 @@ export default function Welcome({ onSample, onUpload }) {
         <div className={[s.card, s.uploadCard].join(' ')} onClick={onUpload}>
           <div className={s.ico}>📂</div>
           <div className={s.cardBody}>
-            <div className={s.ct}>Upload your own</div>
+            <div className={s.ct}>Upload file</div>
             <div className={s.cd}>CSV or TSV · drag & drop or ⌘O</div>
+          </div>
+        </div>
+        <div className={[s.card, s.scratchCard].join(' ')} onClick={onScratch}>
+          <div className={s.ico}>✦</div>
+          <div className={s.cardBody}>
+            <div className={s.ct}>Start from scratch</div>
+            <div className={s.cd}>Build a blank dataset</div>
           </div>
         </div>
       </div>
