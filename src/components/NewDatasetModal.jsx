@@ -61,10 +61,10 @@ function ChooseStep ({ onSample, onUpload, onScratch }) {
 // ─── Type cycling badge ───────────────────────────────────────────────────────
 const COL_TYPES = ['text', 'numeric', 'date', 'boolean']
 const TYPE_META = {
-  text:    { label: 'Aa', title: 'Text'    },
-  numeric: { label: '#',  title: 'Number'  },
-  date:    { label: '⌚', title: 'Date'    },
-  boolean: { label: '◎', title: 'Boolean' },
+  text:    { label: 'T', title: 'Text'    },
+  numeric: { label: '#', title: 'Number'  },
+  date:    { label: 'D', title: 'Date'    },
+  boolean: { label: 'B', title: 'Boolean' },
 }
 
 function TypeBadge ({ type, onChange }) {

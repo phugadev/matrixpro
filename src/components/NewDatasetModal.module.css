@@ -108,20 +108,20 @@
 .colList { display: flex; flex-direction: column; gap: 5px; }
 .colItem { display: flex; align-items: center; gap: 6px; }
 
-/* Type badge */
+/* Type badge — matches Toolbar colTypeBadge colors exactly */
 .typeBadge {
   flex-shrink: 0;
-  width: 32px; height: 28px;
-  border-radius: var(--r); border: 1px solid var(--bd2);
-  font: 600 10.5px/1 var(--m); cursor: pointer;
+  width: 22px; height: 22px;
+  border-radius: 4px; border: 1px solid transparent;
+  font: 700 9px/1 var(--m); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all .12s; user-select: none;
+  transition: filter .1s; user-select: none;
 }
-.type_text    { background: var(--bg5);                color: var(--tx3);  border-color: var(--bd2); }
-.type_numeric { background: rgba(99,102,241,.15);      color: var(--ac2);  border-color: rgba(99,102,241,.3); }
-.type_date    { background: rgba(6,182,212,.12);       color: var(--cyan); border-color: rgba(6,182,212,.25); }
-.type_boolean { background: rgba(52,211,153,.12);      color: #34d399;     border-color: rgba(52,211,153,.25); }
-.typeBadge:hover { filter: brightness(1.15); }
+.type_numeric { color: var(--cyan);  background: rgba(6,182,212,.12); }
+.type_date    { color: var(--green); background: rgba(16,185,129,.12); }
+.type_boolean { color: #c084fc;      background: rgba(168,85,247,.12); }
+.type_text    { color: var(--amber); background: rgba(245,158,11,.12); }
+.typeBadge:hover { filter: brightness(1.2); }
 .colIn {
   flex: 1; background: var(--bg3); border: 1px solid var(--bd2);
   border-radius: var(--r); padding: 6px 9px;
