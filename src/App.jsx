@@ -400,10 +400,12 @@ function Inner () {
   }, [ds, updateDS, toast])
 
   // ── Create blank dataset from scratch ───────────────────────────────────────
+  // cols is [{ name: string, type: string }]
   const createScratch = useCallback((name, cols) => {
     const newDs = makeDS(name, [], state.tabs.length)
-    newDs.cols = cols
-    newDs.rows = []
+    newDs.cols        = cols.map(c => c.name)
+    newDs.rows        = []
+    newDs.pinnedTypes = Object.fromEntries(cols.map(c => [c.name, c.type]))
     addTab(newDs)
     if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows }).catch(() => {})
     toast(`Created "${name}"`, '✓')

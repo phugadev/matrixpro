@@ -62,6 +62,7 @@ export function isDateCol (ds, col) {
 
 // 'numeric' | 'date' | 'boolean' | 'text'
 export function detectColType (ds, col) {
+  if (ds.pinnedTypes?.[col]) return ds.pinnedTypes[col]
   if (isDateCol(ds, col))    return 'date'
   if (isBooleanCol(ds, col)) return 'boolean'
   if (isNumericCol(ds, col)) return 'numeric'

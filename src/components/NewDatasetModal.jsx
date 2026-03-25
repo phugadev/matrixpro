@@ -39,8 +39,8 @@ function ChooseStep ({ onSample, onUpload, onScratch }) {
             <path d="M2 7h12"/>
           </svg>
           <div>
-            <div className={s.actionTitle}>Upload file</div>
-            <div className={s.actionSub}>CSV or TSV · drag & drop or ⌘O</div>
+            <div className={s.actionTitle}>Upload from file</div>
+            <div className={s.actionSub}>Load a local dataset</div>
           </div>
         </div>
         <div className={s.actionCard} onClick={onScratch}>
@@ -58,24 +58,51 @@ function ChooseStep ({ onSample, onUpload, onScratch }) {
   )
 }
 
+// ─── Type cycling badge ───────────────────────────────────────────────────────
+const COL_TYPES = ['text', 'numeric', 'date', 'boolean']
+const TYPE_META = {
+  text:    { label: 'Aa', title: 'Text'    },
+  numeric: { label: '#',  title: 'Number'  },
+  date:    { label: '⌚', title: 'Date'    },
+  boolean: { label: '◎', title: 'Boolean' },
+}
+
+function TypeBadge ({ type, onChange }) {
+  const cycle = () => onChange(COL_TYPES[(COL_TYPES.indexOf(type) + 1) % COL_TYPES.length])
+  const meta  = TYPE_META[type] || TYPE_META.text
+  return (
+    <button
+      type="button"
+      className={[s.typeBadge, s['type_' + type]].join(' ')}
+      onClick={cycle}
+      title={`Type: ${meta.title} — click to change`}
+    >
+      {meta.label}
+    </button>
+  )
+}
+
 // ─── Step 2: scratch builder ──────────────────────────────────────────────────
 function ScratchStep ({ onBack, onCreate }) {
   const [name, setName] = useState('Untitled dataset')
-  const [cols, setCols] = useState(['Name', 'Value', 'Category'])
+  const [cols, setCols] = useState([
+    { name: 'Name',     type: 'text'    },
+    { name: 'Value',    type: 'numeric' },
+    { name: 'Category', type: 'text'    },
+  ])
   const nameRef = useRef(null)
 
   useEffect(() => { nameRef.current?.select() }, [])
 
-  const addCol    = () => setCols(p => [...p, `Column ${p.length + 1}`])
-  const removeCol = i  => setCols(p => p.filter((_, idx) => idx !== i))
-  const updateCol = (i, v) => setCols(p => p.map((c, idx) => idx === i ? v : c))
+  const addCol        = ()         => setCols(p => [...p, { name: `Column ${p.length + 1}`, type: 'text' }])
+  const removeCol     = i          => setCols(p => p.filter((_, idx) => idx !== i))
+  const updateColName = (i, v)     => setCols(p => p.map((c, idx) => idx === i ? { ...c, name: v }    : c))
+  const updateColType = (i, type)  => setCols(p => p.map((c, idx) => idx === i ? { ...c, type }       : c))
 
-  const validCols = cols.filter(c => c.trim())
+  const validCols = cols.filter(c => c.name.trim())
   const canCreate = name.trim() && validCols.length > 0
 
-  const submit = () => {
-    if (canCreate) onCreate(name.trim(), validCols)
-  }
+  const submit = () => { if (canCreate) onCreate(name.trim(), validCols) }
 
   return (
     <>
@@ -110,10 +137,11 @@ function ScratchStep ({ onBack, onCreate }) {
         <div className={s.colList}>
           {cols.map((col, i) => (
             <div key={i} className={s.colItem}>
+              <TypeBadge type={col.type} onChange={type => updateColType(i, type)} />
               <input
                 className={s.colIn}
-                value={col}
-                onChange={e => updateCol(i, e.target.value)}
+                value={col.name}
+                onChange={e => updateColName(i, e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && submit()}
                 placeholder={`Column ${i + 1}`}
               />
