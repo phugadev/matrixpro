@@ -14,29 +14,38 @@ export default function Sidebar () {
   return (
     <aside className={[s.sidebar, collapsed && s.sidebarCollapsed].filter(Boolean).join(' ')}>
       {/* Traffic-light zone */}
-      <div
-        className={s.traffic}
-        style={collapsed ? { padding: '0 8px', justifyContent: 'center' } : {}}
-      >
+      <div className={s.traffic}>
         {!collapsed && (
           <div className={s.wordmark}>
             <span className={s.wordmarkMatrix}>Matrix</span>
             <span className={s.proBadge}>PRO</span>
           </div>
         )}
+        {!collapsed && (
+          <button
+            className={s.collapseBtn}
+            onClick={() => setCollapsed(true)}
+            title="Collapse sidebar"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M10 3l-5 5 5 5"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Expand button — rendered below traffic zone when collapsed so traffic lights don't block it */}
+      {collapsed && (
         <button
-          className={s.collapseBtn}
-          onClick={() => setCollapsed(c => !c)}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={s.expandBtn}
+          onClick={() => setCollapsed(false)}
+          title="Expand sidebar"
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            {collapsed
-              ? <path d="M6 3l5 5-5 5"/>
-              : <path d="M10 3l-5 5 5 5"/>
-            }
+            <path d="M6 3l5 5-5 5"/>
           </svg>
         </button>
-      </div>
+      )}
 
       {!collapsed && (
         <>

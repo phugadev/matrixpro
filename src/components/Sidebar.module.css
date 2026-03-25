@@ -74,6 +74,19 @@
 }
 .collapseBtn:hover { background: var(--bg4); color: var(--tx1); }
 
+/* Expand button shown below traffic zone when collapsed */
+.expandBtn {
+  width: 100%;
+  height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-bottom: 1px solid var(--bd1);
+  color: var(--tx3); cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background var(--ease), color var(--ease);
+  flex-shrink: 0;
+}
+.expandBtn:hover { background: var(--bg4); color: var(--tx1); }
+
 /* ── Search ── */
 .search {
   margin: 8px 10px 4px;
