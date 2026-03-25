@@ -26,7 +26,7 @@ export function fmtCell (v, colType) {
 // ─── Column type detection ───────────────────────────────────────────────────
 export function isNumericCol (ds, col) {
   const sample = ds.rows.slice(0, 20).filter(r => r[col] !== '' && r[col] != null)
-  return sample.length > 0 && sample.every(r => !isNaN(parseFloat(r[col])))
+  return sample.length > 0 && sample.every(r => !isNaN(Number(String(r[col]).trim())))
 }
 
 const DATE_RE = [

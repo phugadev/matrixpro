@@ -71,7 +71,7 @@ function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn
 
   const allRows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)
   const rows    = allRows.slice(0, 500)
-  const isXnum  = rows.slice(0, 20).every(r => !isNaN(parseFloat(r[xCol])))
+  const isXnum  = rows.slice(0, 20).every(r => !isNaN(Number(String(r[xCol]).trim())))
   const isXdate = !isXnum && isDateCol(ds, xCol)
   const isLine  = ct === 'line', isArea = ct === 'area'
   const isBar   = ct === 'bar',  isStacked = ct === 'bar-stacked'
