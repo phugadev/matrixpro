@@ -21,13 +21,17 @@
 .thMeta b  { color: var(--tx2); font-weight: 500; }
 
 .table td {
-  padding: 7px 12px; border-bottom: 1px solid var(--bd1);
+  height: 32px; padding: 0 12px; border-bottom: 1px solid var(--bd1);
   border-right: 1px solid var(--bd1);
   font-size: 12px; color: var(--tx2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; max-width: 200px;
+  box-sizing: border-box;
 }
 .table tr:hover td { background: var(--bg4); }
+.alt td { background: var(--bg3); }
+.alt:hover td { background: var(--bg4) !important; }
+.spacer { padding: 0 !important; border: none !important; }
 .tdIdx { color: var(--tx3) !important; text-align: left; font: 11px/1 var(--m); }
 .num   { color: var(--tx1); font-family: var(--m); }
 .date  { color: var(--cyan); font-family: var(--m); font-size: 12px; }
@@ -44,11 +48,5 @@
 .footer b  { color: var(--tx2); font-family: var(--m); font-weight: 500; }
 .filtered  { color: var(--tx3); }
 
-/* cell td (base) */
-.td {
-  padding: 7px 12px; border-bottom: 1px solid var(--bd1);
-  border-right: 1px solid var(--bd1);
-  font-size: 12px; color: var(--tx2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  position: relative; max-width: 200px;
-}
+/* .td inherits from .table td above */
+.td { }
