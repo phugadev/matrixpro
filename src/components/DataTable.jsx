@@ -4,6 +4,9 @@ import { fmtCell, fmtN, detectColType, buildCatColorMap, parseDate, fmtDate, par
 import { PALETTES, COL_TYPES, COL_TYPE_ORDER } from '../lib/constants'
 import s from './DataTable.module.css'
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROW_H     = 32
 const OVERSCAN  = 20
@@ -187,27 +190,38 @@ export default function DataTable ({ ds, compact = false }) {
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { pinnedTypes: { ...(ds.pinnedTypes || {}), [col]: next } } })
   }, [colTypes, ds.id, ds.pinnedTypes, dispatch])
 
-  // ── Search ───────────────────────────────────────────────────────────────────
-  const [searchOpen,  setSearchOpen]  = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const searchInputRef = useRef(null)
+  // ── Search & Replace ─────────────────────────────────────────────────────────
+  const [searchOpen,   setSearchOpen]   = useState(false)
+  const [searchQuery,  setSearchQuery]  = useState('')
+  const [replaceOpen,  setReplaceOpen]  = useState(false)
+  const [replaceQuery, setReplaceQuery] = useState('')
+  const [matchIdx,     setMatchIdx]     = useState(0)
+  const searchInputRef  = useRef(null)
+  const replaceInputRef = useRef(null)
 
   useEffect(() => {
     const handler = e => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
-        if (searchOpen) { searchInputRef.current?.select() }
-        else            { setSearchOpen(true) }
+        if (searchOpen && !replaceOpen) { searchInputRef.current?.select() }
+        else { setSearchOpen(true); setReplaceOpen(false); setTimeout(() => searchInputRef.current?.focus(), 0) }
       }
-      if (e.key === 'Escape' && searchOpen) { setSearchOpen(false); setSearchQuery('') }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
+        e.preventDefault()
+        setSearchOpen(true); setReplaceOpen(true)
+        setTimeout(() => searchInputRef.current?.focus(), 0)
+      }
+      if (e.key === 'Escape' && searchOpen) closeSearch()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [searchOpen])
+  }, [searchOpen, replaceOpen])
 
   useEffect(() => { if (searchOpen) searchInputRef.current?.focus() }, [searchOpen])
 
-  const closeSearch = useCallback(() => { setSearchOpen(false); setSearchQuery('') }, [])
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false); setSearchQuery(''); setReplaceOpen(false); setReplaceQuery(''); setMatchIdx(0)
+  }, [])
 
   const searchedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -216,6 +230,87 @@ export default function DataTable ({ ds, compact = false }) {
       visibleCols.some(col => String(row[col] ?? '').toLowerCase().includes(q))
     )
   }, [rows, searchQuery, visibleCols])
+
+  // All matching cells: { dsRowIdx, col, visualIdx }
+  const matches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return []
+    const out = []
+    searchedRows.forEach((row, visualIdx) => {
+      const dsRowIdx = ds.rows.indexOf(row)
+      visibleCols.forEach(col => {
+        if (String(row[col] ?? '').toLowerCase().includes(q))
+          out.push({ dsRowIdx, col, visualIdx })
+      })
+    })
+    return out
+  }, [searchedRows, searchQuery, visibleCols, ds.rows])
+
+  // O(1) lookup for cell highlight
+  const matchSet = useMemo(() => {
+    const s = new Set()
+    matches.forEach(({ dsRowIdx, col }) => s.add(`${dsRowIdx}:${col}`))
+    return s
+  }, [matches])
+
+  // Reset to first match whenever query changes
+  useEffect(() => { setMatchIdx(0) }, [searchQuery])
+
+  // Clamp matchIdx if matches shrink (e.g. after a replace)
+  useEffect(() => {
+    if (matches.length && matchIdx >= matches.length) setMatchIdx(matches.length - 1)
+  }, [matches.length])
+
+  // Auto-scroll to active match
+  useEffect(() => {
+    if (!matches.length || !scrollRef.current) return
+    const match = matches[matchIdx]
+    if (!match) return
+    const top = match.visualIdx * ROW_H
+    const el  = scrollRef.current
+    if (top < el.scrollTop || top + ROW_H > el.scrollTop + el.clientHeight) {
+      el.scrollTo({ top: Math.max(0, top - el.clientHeight / 3), behavior: 'smooth' })
+    }
+  }, [matchIdx, matches])
+
+  const navigateMatch = useCallback((delta) => {
+    if (!matches.length) return
+    setMatchIdx(i => (i + delta + matches.length) % matches.length)
+  }, [matches.length])
+
+  const replaceCurrent = useCallback(() => {
+    const match = matches[matchIdx]
+    if (!match || !searchQuery.trim()) return
+    const { dsRowIdx, col } = match
+    const regex = new RegExp(escapeRegex(searchQuery.trim()), 'gi')
+    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    const newRows = ds.rows.map((r, i) =>
+      i === dsRowIdx ? { ...r, [col]: String(r[col] ?? '').replace(regex, replaceQuery) } : r
+    )
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
+  }, [matches, matchIdx, searchQuery, replaceQuery, ds.rows, ds.id, dispatch])
+
+  const replaceAll = useCallback(() => {
+    if (!matches.length || !searchQuery.trim()) return
+    const regex = new RegExp(escapeRegex(searchQuery.trim()), 'gi')
+    const toReplace = {}
+    matches.forEach(({ dsRowIdx, col }) => {
+      if (!toReplace[dsRowIdx]) toReplace[dsRowIdx] = new Set()
+      toReplace[dsRowIdx].add(col)
+    })
+    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    const newRows = ds.rows.map((r, i) => {
+      if (!toReplace[i]) return r
+      const updated = { ...r }
+      toReplace[i].forEach(col => { updated[col] = String(r[col] ?? '').replace(regex, replaceQuery) })
+      return updated
+    })
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
+    const n = matches.length
+    setSearchQuery('')
+    setMatchIdx(0)
+    // keep panel open so user sees the result; toast via parent would be ideal but table owns this
+  }, [matches, searchQuery, replaceQuery, ds.rows, ds.id, dispatch])
 
   // ── Virtual window ───────────────────────────────────────────────────────────
   const startIdx    = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
@@ -362,30 +457,87 @@ export default function DataTable ({ ds, compact = false }) {
   return (
     <div className={s.wrap}>
 
-      {/* ── Search bar ── */}
+      {/* ── Search / Replace bar ── */}
       {searchOpen && (
         <div className={s.searchBar}>
-          <svg className={s.searchIco} width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3.5 3.5"/>
-          </svg>
-          <input
-            ref={searchInputRef}
-            className={s.searchInput}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Escape' && closeSearch()}
-            placeholder="Find in table…"
-          />
-          {activeQuery && (
-            <span className={`${s.searchCount}${searchedRows.length === 0 ? ' ' + s.searchNoMatch : ''}`}>
-              {searchedRows.length === 0 ? 'No matches' : `${searchedRows.length.toLocaleString()} rows`}
-            </span>
-          )}
-          <button className={s.searchClose} onClick={closeSearch} title="Close (Esc)">
-            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/>
+
+          {/* ── Find row ── */}
+          <div className={s.searchRow}>
+            <svg className={s.searchIco} width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3.5 3.5"/>
             </svg>
-          </button>
+            <input
+              ref={searchInputRef}
+              className={s.searchInput}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter')  { e.preventDefault(); navigateMatch(e.shiftKey ? -1 : 1) }
+                if (e.key === 'Escape') closeSearch()
+              }}
+              placeholder="Find in table…"
+            />
+            {activeQuery && (
+              <>
+                <button className={s.matchNavBtn} onClick={() => navigateMatch(-1)} title="Previous (Shift+Enter)">
+                  <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M2 7l3-4 3 4"/></svg>
+                </button>
+                <button className={s.matchNavBtn} onClick={() => navigateMatch(1)} title="Next (Enter)">
+                  <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M2 3l3 4 3-4"/></svg>
+                </button>
+                <span className={`${s.searchCount}${matches.length === 0 ? ' ' + s.searchNoMatch : ''}`}>
+                  {matches.length === 0 ? 'No matches' : `${matchIdx + 1} / ${matches.length}`}
+                </span>
+              </>
+            )}
+            <button
+              className={[s.replaceToggle, replaceOpen && s.replaceToggleOn].filter(Boolean).join(' ')}
+              onClick={() => setReplaceOpen(v => !v)}
+              title="Toggle replace (⌘H)"
+            >
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M2 6h9a3 3 0 010 6H4M4 9l-3 3 3 3"/>
+              </svg>
+            </button>
+            <button className={s.searchClose} onClick={closeSearch} title="Close (Esc)">
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* ── Replace row ── */}
+          {replaceOpen && (
+            <div className={s.replaceRow}>
+              <svg className={s.searchIco} width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M2 4h9a3 3 0 010 6H4M4 7l-3 3 3 3"/>
+              </svg>
+              <input
+                ref={replaceInputRef}
+                className={s.searchInput}
+                value={replaceQuery}
+                onChange={e => setReplaceQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter')  { e.preventDefault(); replaceCurrent() }
+                  if (e.key === 'Escape') closeSearch()
+                }}
+                placeholder="Replace with…"
+              />
+              <button
+                className={s.replaceBtn}
+                onClick={replaceCurrent}
+                disabled={!matches.length || !activeQuery}
+                title="Replace current match (Enter)"
+              >Replace</button>
+              <button
+                className={[s.replaceBtn, s.replaceBtnAll].join(' ')}
+                onClick={replaceAll}
+                disabled={!matches.length || !activeQuery}
+                title={`Replace all ${matches.length} matches`}
+              >All {matches.length > 0 && `(${matches.length})`}</button>
+            </div>
+          )}
+
         </div>
       )}
 
@@ -499,14 +651,17 @@ export default function DataTable ({ ds, compact = false }) {
                     </button>
                   </td>
                   {visibleCols.map(col => {
-                    const cell        = fmtCell(row[col], colTypes[col], catColorMaps[col])
-                    const nm          = numMax[col]
-                    const pct         = nm ? Math.abs(parseNumeric(row[col]) || 0) / nm.max * 100 : 0
-                    const isEditCell  = isEditRow && editingCell?.col === col
+                    const cell         = fmtCell(row[col], colTypes[col], catColorMaps[col])
+                    const nm           = numMax[col]
+                    const pct          = nm ? Math.abs(parseNumeric(row[col]) || 0) / nm.max * 100 : 0
+                    const isEditCell   = isEditRow && editingCell?.col === col
+                    const activeMatch  = matches[matchIdx]
+                    const isActiveMth  = activeMatch?.dsRowIdx === dsRowIdx && activeMatch?.col === col
+                    const isAnyMth     = !isActiveMth && matchSet.has(`${dsRowIdx}:${col}`)
                     return (
                       <td
                         key={col}
-                        className={[s.td, isEditCell ? s.tdEditing : ''].filter(Boolean).join(' ')}
+                        className={[s.td, isEditCell ? s.tdEditing : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : ''].filter(Boolean).join(' ')}
                         onDoubleClick={() => !searchOpen && setEditingCell({ dsRowIdx, col })}
                       >
                         {isEditCell ? (
@@ -590,7 +745,7 @@ export default function DataTable ({ ds, compact = false }) {
           Add row
         </button>
         {!searchOpen && (
-          <span className={s.searchHint}>⌘F search · ⌘↵ add row</span>
+          <span className={s.searchHint}>⌘F find · ⌘H replace · ⌘↵ add row</span>
         )}
       </div>
 

@@ -56,7 +56,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - **Column rename** — double-click any column header label to rename it inline; all rows, types, and widths update automatically
 - **Column type override** — click the type badge (T / # / D / B / C) in any column header to cycle through types
 - **Undo** (**⌘Z**) — steps back through cell edits, row additions, and row deletions (50-step history per dataset)
-- **Find in table** (**⌘F**) — search across all visible columns; footer shows match count
+- **Find & Replace** — **⌘F** to find (prev/next with Shift+Enter / Enter); **⌘H** to open replace panel; Replace current or Replace All with full undo support; matching cells highlighted amber, active match outlined
 - Numeric columns reject non-numeric input with a shake animation
 - Add rows with **⌘↵** or the footer button; delete rows by hovering the row number and clicking ×
 - Category columns auto-assign distinct colours to each unique value
@@ -98,6 +98,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 | ⌘3       | SQL Editor                                |
 | ⌘\\      | Toggle filter panel                       |
 | ⌘F       | Find in table                             |
+| ⌘H       | Find & Replace                            |
 | ⌘Z       | Undo last table edit / row change         |
 | ⌘↵       | Add row (table view) · Run query (SQL)    |
 | ⌘S       | Save current graph                        |
