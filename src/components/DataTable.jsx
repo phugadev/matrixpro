@@ -362,9 +362,16 @@ export default function DataTable ({ ds, compact = false }) {
   // ── Cell editing ──────────────────────────────────────────────────────────────
   // editingCell: { dsRowIdx: number, col: string } | null
   // dsRowIdx is the index in ds.rows (stable across sort/filter)
-  const [editingCell, setEditingCell] = useState(null)
+  const [editingCell,    setEditingCell]    = useState(null)
+  const [selectedRows,   setSelectedRows]   = useState(new Set())
+  const [lastClickedRow, setLastClickedRow] = useState(null)
+  const [copiedFeedback, setCopiedFeedback] = useState(false)
 
-  useEffect(() => { setEditingCell(null) }, [ds.id])
+  useEffect(() => {
+    setEditingCell(null)
+    setSelectedRows(new Set())
+    setLastClickedRow(null)
+  }, [ds.id])
 
   const commitEdit = useCallback((dsRowIdx, col, value) => {
     if (dsRowIdx < 0 || dsRowIdx >= ds.rows.length) return
@@ -436,6 +443,85 @@ export default function DataTable ({ ds, compact = false }) {
     }
   }, [commitEdit, ds.rows, ds.cols, ds.id, dispatch, visibleCols, searchedRows])
 
+  // ── Row selection ─────────────────────────────────────────────────────────────
+  const handleRowSelect = useCallback((dsRowIdx, e) => {
+    e.stopPropagation()
+    if (e.shiftKey && lastClickedRow != null) {
+      // Shift+click: range select in current visible order
+      const idxA = searchedRows.findIndex(r => ds.rows.indexOf(r) === lastClickedRow)
+      const idxB = searchedRows.findIndex(r => ds.rows.indexOf(r) === dsRowIdx)
+      const lo   = Math.min(idxA, idxB)
+      const hi   = Math.max(idxA, idxB)
+      setSelectedRows(prev => {
+        const next = new Set(prev)
+        for (let k = lo; k <= hi; k++) next.add(ds.rows.indexOf(searchedRows[k]))
+        return next
+      })
+    } else if (e.metaKey || e.ctrlKey) {
+      // ⌘+click: toggle single row
+      setSelectedRows(prev => {
+        const next = new Set(prev)
+        next.has(dsRowIdx) ? next.delete(dsRowIdx) : next.add(dsRowIdx)
+        return next
+      })
+      setLastClickedRow(dsRowIdx)
+    } else {
+      // Plain click: select only this row (or deselect if it was the only one)
+      setSelectedRows(prev => {
+        if (prev.size === 1 && prev.has(dsRowIdx)) return new Set()
+        return new Set([dsRowIdx])
+      })
+      setLastClickedRow(dsRowIdx)
+    }
+  }, [ds.rows, searchedRows, lastClickedRow])
+
+  const toggleSelectAll = useCallback(() => {
+    const visibleIdxs = searchedRows.map(r => ds.rows.indexOf(r))
+    const allSel = visibleIdxs.every(i => selectedRows.has(i))
+    if (allSel) {
+      setSelectedRows(new Set())
+    } else {
+      setSelectedRows(new Set(visibleIdxs))
+    }
+  }, [ds.rows, searchedRows, selectedRows])
+
+  const bulkDelete = useCallback(() => {
+    if (selectedRows.size === 0) return
+    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    const newRows = ds.rows.filter((_, i) => !selectedRows.has(i))
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
+    setSelectedRows(new Set())
+    setLastClickedRow(null)
+  }, [ds.rows, ds.id, dispatch, selectedRows])
+
+  const bulkDuplicate = useCallback(() => {
+    if (selectedRows.size === 0) return
+    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    const sorted = [...selectedRows].sort((a, b) => a - b)
+    const insertAfter = sorted[sorted.length - 1]
+    const copies = sorted.map(i => ({ ...ds.rows[i] }))
+    const newRows = [
+      ...ds.rows.slice(0, insertAfter + 1),
+      ...copies,
+      ...ds.rows.slice(insertAfter + 1)
+    ]
+    const newIdxs = new Set(copies.map((_, k) => insertAfter + 1 + k))
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
+    setSelectedRows(newIdxs)
+    setLastClickedRow(null)
+  }, [ds.rows, ds.id, dispatch, selectedRows])
+
+  const copySelectionCSV = useCallback(() => {
+    if (selectedRows.size === 0) return
+    const sorted = [...selectedRows].sort((a, b) => a - b)
+    const header = visibleCols.join('\t')
+    const body   = sorted.map(i => visibleCols.map(c => ds.rows[i]?.[c] ?? '').join('\t')).join('\n')
+    navigator.clipboard.writeText(header + '\n' + body).then(() => {
+      setCopiedFeedback(true)
+      setTimeout(() => setCopiedFeedback(false), 1600)
+    })
+  }, [ds.rows, visibleCols, selectedRows])
+
   // ⌘↵ to add row; ⌘Z to undo; Escape to exit edit
   useEffect(() => {
     const handler = e => {
@@ -444,15 +530,28 @@ export default function DataTable ({ ds, compact = false }) {
         e.preventDefault()
         dispatch({ type: 'UNDO_ROWS', dsId: ds.id })
       }
-      if (e.key === 'Escape' && editingCell && !searchOpen) setEditingCell(null)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !editingCell && !searchOpen) {
+        e.preventDefault()
+        toggleSelectAll()
+      }
+      if (e.key === 'Escape' && !searchOpen) {
+        if (editingCell) setEditingCell(null)
+        else if (selectedRows.size > 0) { setSelectedRows(new Set()); setLastClickedRow(null) }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [addRow, editingCell, searchOpen, ds.id, dispatch])
+  }, [addRow, editingCell, searchOpen, ds.id, dispatch, toggleSelectAll, selectedRows])
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const sortBy      = col => dispatch({ type: 'SET_SORT', col })
   const activeQuery = searchQuery.trim()
+
+  // Selection derived state
+  const visibleIdxs  = searchedRows.map(r => ds.rows.indexOf(r))
+  const selCount     = selectedRows.size
+  const allVisible   = visibleIdxs.length > 0 && visibleIdxs.every(i => selectedRows.has(i))
+  const someVisible  = !allVisible && visibleIdxs.some(i => selectedRows.has(i))
 
   return (
     <div className={s.wrap}>
@@ -555,7 +654,25 @@ export default function DataTable ({ ds, compact = false }) {
           {/* ── Header ── */}
           <thead>
             <tr>
-              <th><div className={s.thi + ' ' + s.idx}>#</div></th>
+              <th>
+                <div className={s.thi + ' ' + s.idx}>
+                  <button
+                    className={s.selAllBtn + (allVisible ? ' ' + s.selAllOn : someVisible ? ' ' + s.selAllMixed : '')}
+                    onClick={toggleSelectAll}
+                    title={allVisible ? 'Deselect all' : 'Select all visible rows'}
+                  >
+                    {allVisible ? (
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1.5 5.5l2.5 2.5 4.5-5"/>
+                      </svg>
+                    ) : someVisible ? (
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                        <path d="M2 5h6"/>
+                      </svg>
+                    ) : '#'}
+                  </button>
+                </div>
+              </th>
               {visibleCols.map(col => {
                 const ct       = colTypes[col]
                 const vals     = ds.rows.map(r => r[col]).filter(v => v !== undefined && v !== '')
@@ -636,19 +753,46 @@ export default function DataTable ({ ds, compact = false }) {
               const i          = startIdx + vi
               const dsRowIdx   = ds.rows.indexOf(row)
               const isEditRow  = editingCell?.dsRowIdx === dsRowIdx
+              const isSel      = selectedRows.has(dsRowIdx)
+              const rowCls     = [
+                i % 2 === 1 ? s.alt : '',
+                s.dataRow,
+                isSel      ? s.selectedRow  : '',
+                selCount > 0 ? s.selModeRow : '',
+              ].filter(Boolean).join(' ')
               return (
-                <tr key={i} className={[i % 2 === 1 ? s.alt : '', s.dataRow].filter(Boolean).join(' ')}>
+                <tr key={i} className={rowCls}>
                   <td className={[s.tdIdx, s.tdIdxCell].join(' ')}>
                     <span className={s.rowNum}>{i + 1}</span>
-                    <button
-                      className={s.tdDel}
-                      onClick={e => { e.stopPropagation(); deleteRow(dsRowIdx) }}
-                      title="Delete row"
-                    >
-                      <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                        <path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/>
-                      </svg>
-                    </button>
+                    {selCount > 0 ? (
+                      /* Selection mode: checkbox overlay */
+                      <button
+                        className={s.tdSel + (isSel ? ' ' + s.tdSelOn : '')}
+                        onClick={e => handleRowSelect(dsRowIdx, e)}
+                        title={isSel ? 'Deselect row' : 'Select row'}
+                      >
+                        {isSel ? (
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1.5 5.5l2.5 2.5 4.5-5"/>
+                          </svg>
+                        ) : (
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                            <circle cx="5" cy="5" r="3.5"/>
+                          </svg>
+                        )}
+                      </button>
+                    ) : (
+                      /* Normal mode: hover shows circle → click to enter selection */
+                      <button
+                        className={s.tdSelHover}
+                        onClick={e => handleRowSelect(dsRowIdx, e)}
+                        title="Click to select · ⌘ toggle · ⇧ range"
+                      >
+                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                          <circle cx="5" cy="5" r="3.5"/>
+                        </svg>
+                      </button>
+                    )}
                   </td>
                   {visibleCols.map(col => {
                     const cell         = fmtCell(row[col], colTypes[col], catColorMaps[col])
@@ -717,6 +861,41 @@ export default function DataTable ({ ds, compact = false }) {
           </div>
         )}
       </div>
+
+      {/* ── Bulk action bar ── */}
+      {selCount > 0 && (
+        <div className={s.actionBar}>
+          <span className={s.actionCount}>{selCount} row{selCount !== 1 ? 's' : ''} selected</span>
+          <span className={s.actionSep}/>
+          <button className={s.actionBtn} onClick={bulkDuplicate} title="Duplicate selected rows">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="5" width="8" height="9" rx="1.5"/>
+              <path d="M3 11V3a1 1 0 011-1h7"/>
+            </svg>
+            Duplicate
+          </button>
+          <button className={s.actionBtnSuccess} onClick={copySelectionCSV} title="Copy as TSV to clipboard">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V7L9 2z"/>
+              <path d="M9 2v5h4"/>
+            </svg>
+            {copiedFeedback ? 'Copied!' : 'Copy CSV'}
+          </button>
+          <button className={s.actionBtnDanger} onClick={bulkDelete} title="Delete selected rows">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 5h10M6 5V3h4v2M6 8v5M10 8v5"/>
+              <rect x="4" y="5" width="8" height="8" rx="1"/>
+            </svg>
+            Delete
+          </button>
+          <span className={s.actionSep}/>
+          <button className={s.actionDismiss} onClick={() => { setSelectedRows(new Set()); setLastClickedRow(null) }} title="Clear selection (Esc)">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/>
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Footer ── */}
       <div className={s.footer}>

@@ -9,7 +9,7 @@
   position: relative;
 }
 .thi       { padding: 8px 12px 6px; display: flex; flex-direction: column; gap: 2px; }
-.idx       { min-width: 40px; max-width: 40px; align-items: center; padding: 8px 4px; }
+.idx       { min-width: 40px; max-width: 40px; align-items: center; padding: 8px 4px; position: relative; }
 
 /* Resize handle — sits at the right edge of every <th> */
 .resizeHandle {
@@ -183,15 +183,6 @@
 /* ── Row index cell: row num ↔ delete button ────────────────────────────── */
 .tdIdxCell { position: relative !important; overflow: visible; }
 .rowNum    { transition: opacity .1s; pointer-events: none; }
-.tdDel {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; cursor: pointer;
-  color: var(--tx3); border-radius: 4px;
-  opacity: 0; transition: opacity .1s, color .1s, background .1s;
-}
-.tdDel:hover { color: var(--tx1); background: var(--bg5); }
-.dataRow:hover .tdDel  { opacity: 1; }
 .dataRow:hover .rowNum { opacity: 0; }
 
 /* ── Empty dataset state ─────────────────────────────────────────────────── */
@@ -211,6 +202,103 @@
   transition: opacity .15s;
 }
 .emptyAddBtn:hover { opacity: .85; }
+
+/* ── Row selection ───────────────────────────────────────────────────────── */
+
+/* Header select-all button */
+.selAllBtn {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tx3); font-size: 11px; font-family: var(--m);
+  transition: color .1s, background .1s;
+}
+.selAllBtn:hover { color: var(--tx1); background: var(--bg4); }
+.selAllOn        { color: var(--ac2) !important; }
+.selAllMixed     { color: var(--tx2) !important; }
+
+/* Row highlight when selected */
+.selectedRow td   { background: rgba(99,102,241,.09) !important; }
+.selectedRow:hover td { background: rgba(99,102,241,.15) !important; }
+
+/* Subtle tint on non-selected rows during selection mode */
+.selModeRow td { transition: background .08s; }
+
+/* Circle overlay on row index — hover in normal mode → select */
+.tdSelHover {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tx3); border-radius: 4px;
+  opacity: 0; transition: opacity .1s, color .1s, background .1s;
+}
+.tdSelHover:hover { color: var(--tx1); background: var(--bg5); }
+.dataRow:hover .tdSelHover { opacity: 1; }
+.dataRow:hover .rowNum     { opacity: 0; }
+
+/* Selection mode: always-visible checkmark/circle overlay */
+.tdSel {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--tx3); border-radius: 4px;
+  opacity: 1; transition: color .1s, background .1s;
+}
+.tdSel:hover { background: var(--bg5); color: var(--tx2); }
+.tdSelOn     { color: var(--ac2) !important; }
+
+/* Ensure row number hides in selection mode */
+.selModeRow .rowNum { opacity: 0; }
+
+/* ── Floating bulk-action bar ────────────────────────────────────────────── */
+.actionBar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg2); border-top: 1px solid var(--bd2);
+  flex-shrink: 0; animation: actionSlideIn .14s ease;
+}
+@keyframes actionSlideIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.actionCount {
+  font-size: 11px; font-weight: 600; color: var(--tx2); white-space: nowrap;
+  font-family: var(--m);
+}
+.actionSep { flex: 1; }
+
+.actionBtn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 5px; flex-shrink: 0;
+  background: var(--bg4); border: 1px solid var(--bd2);
+  font: 500 11px/1 var(--f); color: var(--tx2); cursor: pointer;
+  transition: all .1s; white-space: nowrap;
+}
+.actionBtn:hover { background: var(--bg5); color: var(--tx1); border-color: var(--bd3); }
+
+.actionBtnSuccess {
+  composes: actionBtn;
+  color: #6ee7b7; border-color: rgba(52,211,153,.2); background: rgba(52,211,153,.06);
+}
+.actionBtnSuccess:hover {
+  background: rgba(52,211,153,.12) !important; border-color: rgba(52,211,153,.35) !important; color: #a7f3d0 !important;
+}
+
+.actionBtnDanger {
+  composes: actionBtn;
+  color: #fda4af; border-color: rgba(244,63,94,.2); background: rgba(244,63,94,.06);
+}
+.actionBtnDanger:hover {
+  background: rgba(244,63,94,.13) !important; border-color: rgba(244,63,94,.4) !important; color: #fecdd3 !important;
+}
+
+.actionDismiss {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
+  background: none; border: none; color: var(--tx3); cursor: pointer;
+  transition: all .1s;
+}
+.actionDismiss:hover { background: var(--bg5); color: var(--tx1); }
 
 /* ── Footer add-row button ───────────────────────────────────────────────── */
 .addRowBtn {
