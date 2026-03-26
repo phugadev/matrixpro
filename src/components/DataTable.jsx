@@ -153,6 +153,33 @@ export default function DataTable ({ ds, compact = false }) {
     return out
   }, [ds, pal, colTypes])
 
+  // ── Column rename ─────────────────────────────────────────────────────────────
+  const [renamingCol, setRenamingCol] = useState(null)
+  const [renameVal,   setRenameVal]   = useState('')
+  const renameInputRef = useRef(null)
+
+  useEffect(() => { if (renamingCol) renameInputRef.current?.select() }, [renamingCol])
+
+  const startRenameCol = useCallback((col, e) => {
+    e.stopPropagation()
+    setRenameVal(col)
+    setRenamingCol(col)
+  }, [])
+
+  const commitRenameCol = useCallback((oldCol) => {
+    const n = renameVal.trim()
+    setRenamingCol(null)
+    if (!n || n === oldCol || ds.cols.includes(n)) return
+    const cols = ds.cols.map(c => c === oldCol ? n : c)
+    const rows = ds.rows.map(r => { const { [oldCol]: v, ...rest } = r; return { ...rest, [n]: v } })
+    const pt   = { ...(ds.pinnedTypes || {}) }
+    if (oldCol in pt) { pt[n] = pt[oldCol]; delete pt[oldCol] }
+    const hc   = (ds.hiddenCols  || []).map(c => c === oldCol ? n : c)
+    const cw   = { ...(ds.colWidths   || {}) }
+    if (oldCol in cw) { cw[n] = cw[oldCol]; delete cw[oldCol] }
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols, rows, pinnedTypes: pt, hiddenCols: hc, colWidths: cw } })
+  }, [renameVal, ds, dispatch])
+
   // ── Cycle column type ────────────────────────────────────────────────────────
   const cycleType = useCallback(col => {
     const current = colTypes[col] || 'text'
@@ -405,7 +432,26 @@ export default function DataTable ({ ds, compact = false }) {
                           onClick={e => { e.stopPropagation(); cycleType(col) }}
                           title={`Type: ${tb.title} — click to change`}
                         >{tb.label}</span>
-                        <span className={s.thLabel}>{col}</span>
+                        {renamingCol === col ? (
+                          <input
+                            ref={renameInputRef}
+                            className={s.colRenameInput}
+                            value={renameVal}
+                            onChange={e => setRenameVal(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter')  { e.stopPropagation(); commitRenameCol(col) }
+                              if (e.key === 'Escape') { e.stopPropagation(); setRenamingCol(null) }
+                            }}
+                            onBlur={() => commitRenameCol(col)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span
+                            className={s.thLabel}
+                            onDoubleClick={e => startRenameCol(col, e)}
+                            title="Double-click to rename"
+                          >{col}</span>
+                        )}
                         <span
                           className={s.sortBtn + (isActive ? ' ' + s.sortOn : '')}
                           onClick={() => sortBy(col)}

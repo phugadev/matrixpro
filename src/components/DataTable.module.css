@@ -39,7 +39,14 @@
   cursor: pointer; user-select: none; transition: filter var(--ease);
 }
 .colTypeBadge:hover { filter: brightness(1.25); }
-.thLabel   { font-size: 12px; font-weight: 500; color: var(--tx1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thLabel   { font-size: 12px; font-weight: 500; color: var(--tx1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+.colRenameInput {
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  color: var(--tx1); background: var(--bg2);
+  border: 1px solid var(--ac); border-radius: 3px;
+  padding: 1px 5px; outline: none;
+  width: 100%; min-width: 40px; max-width: 160px;
+}
 .sortBtn   { cursor: pointer; color: var(--tx3); border-radius: 3px; padding: 1px 2px; font-size: 11px; flex-shrink: 0; transition: color var(--ease); }
 .sortBtn:hover, .sortOn { color: var(--ac2); }
 .sortDir   { font-size: 10px; color: var(--ac2); flex-shrink: 0; }

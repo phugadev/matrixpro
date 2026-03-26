@@ -34,6 +34,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 
 ### Datasets
 - Import `.csv` and `.tsv` files via drag & drop or **⌘O**
+- **Paste-to-import** — copy a CSV or TSV table from any app (Excel, Google Sheets, etc.) and paste directly into Matrix Pro to create a new dataset instantly
 - 4 built-in sample datasets (CA Housing, World Population, Sales '23, Tech Stocks)
 - **Create blank datasets from scratch** — define column names and types upfront via the **+** button
 - 5 column types: **Text · Number · Date · Boolean · Category** — auto-detected on import, overridable per column
@@ -52,6 +53,10 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 ### Table view
 - Sortable columns, formatted numbers, date parsing, and categorical value pills
 - **Inline cell editing** — double-click any cell to edit; Tab / Enter to move to the next cell, Esc to cancel
+- **Column rename** — double-click any column header label to rename it inline; all rows, types, and widths update automatically
+- **Column type override** — click the type badge (T / # / D / B / C) in any column header to cycle through types
+- **Undo** (**⌘Z**) — steps back through cell edits, row additions, and row deletions (50-step history per dataset)
+- **Find in table** (**⌘F**) — search across all visible columns; footer shows match count
 - Numeric columns reject non-numeric input with a shake animation
 - Add rows with **⌘↵** or the footer button; delete rows by hovering the row number and clicking ×
 - Category columns auto-assign distinct colours to each unique value
@@ -84,18 +89,20 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 
 ## Keyboard shortcuts
 
-| Shortcut | Action                        |
-|----------|-------------------------------|
-| ⌘O       | Open dataset                  |
-| ⌘1       | Table view                    |
-| ⌘2       | Graph view                    |
-| ⌘3       | SQL Editor                    |
-| ⌘\\      | Toggle filter panel           |
-| ⌘S       | Save current graph            |
-| ⌘E       | Export CSV                    |
-| ⌘↵       | Add row (in table view)       |
-| ⌘↵       | Run query (in SQL editor)     |
-| Esc      | Close modal / cancel edit     |
+| Shortcut | Action                                    |
+|----------|-------------------------------------------|
+| ⌘O       | Open dataset file                         |
+| Paste    | Import clipboard CSV/TSV as new dataset   |
+| ⌘1       | Table view                                |
+| ⌘2       | Graph view                                |
+| ⌘3       | SQL Editor                                |
+| ⌘\\      | Toggle filter panel                       |
+| ⌘F       | Find in table                             |
+| ⌘Z       | Undo last table edit / row change         |
+| ⌘↵       | Add row (table view) · Run query (SQL)    |
+| ⌘S       | Save current graph                        |
+| ⌘E       | Export CSV                                |
+| Esc      | Close modal / cancel edit / close search  |
 
 ---
 

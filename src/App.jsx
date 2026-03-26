@@ -220,6 +220,29 @@ function Inner () {
     return () => window.removeEventListener('keydown', handler)
   }, [state.view, ds])
 
+  // ── Paste-to-import ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = e => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return
+      const text = e.clipboardData?.getData('text')
+      if (!text?.trim()) return
+      const lines = text.trim().split('\n').filter(l => l.trim())
+      if (lines.length < 2) return
+      const delimiter = lines[0].includes('\t') ? '\t' : ','
+      const res = Papa.parse(text.trim(), { header: true, skipEmptyLines: true, delimiter, dynamicTyping: false })
+      if (!res.data.length || !res.meta.fields?.length) return
+      e.preventDefault()
+      const newDs = makeDS('Pasted data', res.data, state.tabs.length)
+      newDs.cols = res.meta.fields.filter(c => c && c.trim())
+      addTab(newDs)
+      if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null }).catch(() => {})
+      toast(`Pasted ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '📋')
+    }
+    document.addEventListener('paste', handler)
+    return () => document.removeEventListener('paste', handler)
+  }, [state.tabs.length, addTab, toast])
+
   // ── Drag & drop ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const enter = () => { dropCount.current++; setDropping(true) }
