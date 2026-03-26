@@ -6,7 +6,7 @@ const init = {
   tabs:       [],        // dataset objects
   workspaces: [],        // { id, name }[]
   activeId:   null,      // active tab id
-  view:       'table',   // 'table' | 'graph'
+  view:       'table',   // 'table' | 'graph' | 'sql'
   panelOpen:  false,
   panelTab:   'graph',   // 'filters' | 'stats' | 'graph' | 'saved'
   chartType:      'bar',
