@@ -190,6 +190,7 @@ export function makeDS (name, rows, existingTabCount = 0) {
     filterLabels:    {},
     filterSpecs:     {},
     savedFilterSets: [],
+    colFormats:      {},   // { [col]: 'scale' } — conditional formatting
     savedGraphs:     [],
     color:           PALETTES[0][existingTabCount % PALETTES[0].length],
   }

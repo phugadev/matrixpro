@@ -160,11 +160,24 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     ds.cols.forEach((col, ci) => {
       if (colTypes[col] === 'numeric') {
         const vals = ds.rows.map(r => Math.abs(parseNumeric(r[col]) || 0))
-        out[col] = { max: Math.max(...vals) || 1, color: pal[ci % pal.length] }
+        const rawVals = ds.rows.map(r => parseNumeric(r[col])).filter(v => !isNaN(v))
+        out[col] = {
+          max:    Math.max(...vals) || 1,
+          color:  pal[ci % pal.length],
+          minRaw: rawVals.length ? Math.min(...rawVals) : 0,
+          maxRaw: rawVals.length ? Math.max(...rawVals) : 1,
+        }
       }
     })
     return out
   }, [ds, pal, colTypes])
+
+  // Toggle color-scale conditional formatting for a column
+  const toggleColScale = useCallback((col) => {
+    const cur = ds.colFormats || {}
+    const next = cur[col] === 'scale' ? { ...cur, [col]: undefined } : { ...cur, [col]: 'scale' }
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { colFormats: next } })
+  }, [ds.colFormats, ds.id, dispatch])
 
   // ── Column rename ─────────────────────────────────────────────────────────────
   const [renamingCol, setRenamingCol] = useState(null)
@@ -642,6 +655,10 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
         e.preventDefault()
         dispatch({ type: 'UNDO_ACTION', dsId: ds.id })
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey && !editingCell) {
+        e.preventDefault()
+        dispatch({ type: 'REDO_ACTION', dsId: ds.id })
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !editingCell && !searchOpen) {
         e.preventDefault()
         toggleSelectAll()
@@ -939,6 +956,22 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                       </div>
                       <div className={s.thMeta}>
                         {metaEl}
+                        {!isComputed && ct === 'numeric' && (() => {
+                          const scaleOn = (ds.colFormats || {})[col] === 'scale'
+                          return (
+                            <button
+                              className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={e => { e.stopPropagation(); toggleColScale(col) }}
+                              title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
+                            >
+                              <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
+                                <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
+                              </svg>
+                            </button>
+                          )
+                        })()}
                         {!isComputed && (
                           <button
                             className={s.pinBtn + (isPinned ? ' ' + s.pinBtnOn : '')}
@@ -1040,6 +1073,10 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col])
                     const nm           = numMax[col]
                     const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
+                    const scaleOn      = (ds.colFormats || {})[col] === 'scale'
+                    const scaleAlpha   = scaleOn && nm && nm.maxRaw !== nm.minRaw
+                      ? (parseNumeric(rawVal) - nm.minRaw) / (nm.maxRaw - nm.minRaw)
+                      : null
                     const isEditCell   = !isComputed && isEditRow && editingCell?.col === col
                     const isFocused    = !isEditCell && focusedCell?.rowIdx === i && focusedCell?.colIdx === colVisIdx
                     const activeMatch  = matches[matchIdx]
@@ -1047,14 +1084,22 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     const isAnyMth     = !isActiveMth && matchSet.has(`${dsRowIdx}:${col}`)
                     const isPinnedCol  = colVisIdx < pinnedCount
                     const isLastPin    = colVisIdx === pinnedCount - 1
-                    const tdStyle = isPinnedCol
-                      ? { ...(isComputed ? { background: 'rgba(251,146,60,.04)' } : {}), position: 'sticky', left: pinnedLeftOffsets[col] }
-                      : isComputed ? { background: 'rgba(251,146,60,.04)' } : undefined
+                    let scaleBg = null
+                    if (scaleAlpha !== null && !isNaN(scaleAlpha)) {
+                      const t = Math.max(0, Math.min(1, scaleAlpha))
+                      // white → palette colour
+                      scaleBg = `rgba(99,102,241,${(t * 0.55).toFixed(3)})`
+                    }
+                    const tdStyle = {
+                      ...(isPinnedCol ? { position: 'sticky', left: pinnedLeftOffsets[col] } : {}),
+                      ...(isComputed   ? { background: 'rgba(251,146,60,.04)' } : {}),
+                      ...(scaleBg      ? { background: scaleBg } : {}),
+                    }
                     return (
                       <td
                         key={col}
                         className={[s.td, isEditCell ? s.tdEditing : '', isFocused ? s.tdFocused : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : '', isPinnedCol ? s.pinnedTd : '', isLastPin ? s.pinnedLast : ''].filter(Boolean).join(' ')}
-                        style={tdStyle}
+                        style={Object.keys(tdStyle).length ? tdStyle : undefined}
                         onClick={!isComputed && !editingCell ? () => setFocusedCell({ rowIdx: i, colIdx: colVisIdx }) : undefined}
                         onDoubleClick={!isComputed ? () => !searchOpen && setEditingCell({ dsRowIdx, col }) : undefined}
                       >
@@ -1068,7 +1113,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                           />
                         ) : (
                           <>
-                            {nm && (
+                            {nm && !scaleOn && (
                               <div
                                 className={s.cellBar}
                                 style={{ width: `${pct}%`, background: nm.color }}

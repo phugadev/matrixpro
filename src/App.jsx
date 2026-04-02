@@ -319,7 +319,8 @@ function Inner () {
     if (!ds) return
     const filters = ds.filters || {}
     const rows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)
-    const csv = ds.cols.join(',') + '\n' + rows.map(r => ds.cols.map(c => `"${r[c] ?? ''}"`).join(',')).join('\n')
+    const cols = ds.cols.filter(c => !(ds.hiddenCols || []).includes(c))
+    const csv = cols.join(',') + '\n' + rows.map(r => cols.map(c => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
     const name = (ds.name || 'export').replace(/\s+/g, '_') + '.csv'
     if (isElectron) {
       const ok = await window.MP.saveCSV({ defaultName: name, content: csv })
@@ -334,7 +335,9 @@ function Inner () {
   const doExportJSON = useCallback(async () => {
     if (!ds) return
     const filters = ds.filters || {}
-    const rows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)
+    const allRows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)
+    const cols = ds.cols.filter(c => !(ds.hiddenCols || []).includes(c))
+    const rows = allRows.map(r => Object.fromEntries(cols.map(c => [c, r[c]])))
     const json = JSON.stringify(rows, null, 2)
     const name = (ds.name || 'export').replace(/\s+/g, '_') + '.json'
     if (isElectron) {

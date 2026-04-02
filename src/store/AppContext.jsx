@@ -5,7 +5,8 @@ import { makeDS, genHousing, genWorld, genSales, genStocks, uid } from '../lib/d
 const init = {
   tabs:       [],        // dataset objects
   workspaces: [],        // { id, name }[]
-  actionHistory: {},     // { [dsId]: { rows?, ...colState }[] } — unified undo stack, max 50
+  actionHistory: {},     // { [dsId]: snapshot[] } — unified undo stack, max 50
+  redoHistory:   {},     // { [dsId]: snapshot[] } — redo stack, cleared on new action
   activeId:   null,      // active tab id
   view:       'table',   // 'table' | 'graph' | 'sql'
   panelOpen:  false,
@@ -141,16 +142,38 @@ function reducer (state, action) {
       return {
         ...state,
         actionHistory: { ...state.actionHistory, [action.dsId]: [...capped, action.data] },
+        redoHistory:   { ...state.redoHistory,   [action.dsId]: [] },  // new action clears redo
       }
     }
 
     case 'UNDO_ACTION': {
       const stack = state.actionHistory[action.dsId] || []
       if (!stack.length) return state
+      const tab      = state.tabs.find(t => t.id === action.dsId)
+      // capture current state snapshot for redo (same keys as what we're restoring)
+      const snap     = stack[stack.length - 1]
+      const current  = tab ? Object.fromEntries(Object.keys(snap).map(k => [k, tab[k]])) : {}
+      const rStack   = state.redoHistory[action.dsId] || []
       return {
         ...state,
-        tabs:          state.tabs.map(t => t.id === action.dsId ? { ...t, ...stack[stack.length - 1] } : t),
+        tabs:          state.tabs.map(t => t.id === action.dsId ? { ...t, ...snap } : t),
         actionHistory: { ...state.actionHistory, [action.dsId]: stack.slice(0, -1) },
+        redoHistory:   { ...state.redoHistory,   [action.dsId]: [...rStack, current] },
+      }
+    }
+
+    case 'REDO_ACTION': {
+      const rStack = state.redoHistory[action.dsId] || []
+      if (!rStack.length) return state
+      const snap    = rStack[rStack.length - 1]
+      const tab     = state.tabs.find(t => t.id === action.dsId)
+      const current = tab ? Object.fromEntries(Object.keys(snap).map(k => [k, tab[k]])) : {}
+      const uStack  = state.actionHistory[action.dsId] || []
+      return {
+        ...state,
+        tabs:          state.tabs.map(t => t.id === action.dsId ? { ...t, ...snap } : t),
+        redoHistory:   { ...state.redoHistory,   [action.dsId]: rStack.slice(0, -1) },
+        actionHistory: { ...state.actionHistory, [action.dsId]: [...uStack, current] },
       }
     }
 

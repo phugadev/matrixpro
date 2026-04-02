@@ -42,6 +42,8 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - **Duplicate** any dataset via the ⋯ menu in the toolbar — creates a full copy as a new tab
 - **Change dataset colour** — click the colour dot in the toolbar to pick from 10 palette swatches; persists to SQLite
 - Rename and delete via the ⋯ menu in the toolbar
+- **Cross-dataset joins** — join two open datasets on a shared key column (inner / left / right); result opens as a new tab
+- **Export CSV / JSON** — exports only visible (non-hidden) rows and columns respecting active filters; **⌘E** for CSV
 - Datasets, saved graphs, and workspace assignments are persisted to SQLite on Electron
 
 ### Workspaces
@@ -57,13 +59,15 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - Formatted numbers, date parsing, and categorical value pills
 - Row and column count always visible in the toolbar stat pill; hidden columns shown as `N / total cols`
 - **Inline cell editing** — double-click any cell to edit; Tab / Enter to move to the next cell, Esc to cancel
+- **Keyboard navigation** — arrow keys to move the focused cell; Enter / F2 to enter edit mode; Delete / Backspace to clear; ⌘↵ to add a row
 - **Column reordering** — drag any column header left or right to reorder; order persists to the dataset
 - **Column resizing** — drag the right edge of any header
 - **Freeze columns** — hover a column header and click the pin icon to freeze that column (and everything to its left); frozen columns stay fixed during horizontal scroll with a visual separator
 - **Multi-sort** — click ⇅ to sort by a column; Shift+click to add more sort keys; priority indicators (↑¹ ↓²) show order; Shift+click a sorted column again to flip direction or remove it from the sort stack
 - **Column rename** — double-click any column header label to rename it inline; all rows, types, and widths update automatically
 - **Column type override** — click the type badge (T / # / D / B / C) in any column header to cycle through types
-- **Undo** (**⌘Z**) — steps back through cell edits, row additions, and row deletions (50-step history per dataset)
+- **Undo / Redo** (**⌘Z** / **⌘⇧Z**) — unified 50-step history per dataset covering cell edits, row changes, and column operations (rename, reorder, freeze, type change)
+- **Conditional formatting** — hover a numeric column header and click the gradient icon to apply a colour-scale background (low → transparent, high → indigo); click again to turn off; replaces the bar-chart overlay for a cleaner heatmap view
 - **Find & Replace** — **⌘F** to find (prev/next with Shift+Enter / Enter); **⌘H** to open replace panel; Replace current or Replace All with full undo support; matching cells highlighted amber, active match outlined
 - Numeric columns reject non-numeric input with a shake animation
 - Add rows with **⌘↵** or the footer button; delete rows by hovering the row number and clicking ×
@@ -74,6 +78,15 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - Active filters shown as chips with one-click removal
 - Column visibility toggle — hide/show individual columns via the toolbar; search by name for wide datasets
 - Group & aggregate — create a new summarised dataset by category
+
+### Filters & Stats (⌘\\)
+- **Numeric filters** — range sliders with min/max bounds per column
+- **Category filters** — checkbox list for each unique value
+- **Date filters** — year and month multi-select plus an optional date range
+- **Text / Regex filters** — Contains · Starts with · Ends with · Regex modes, with optional case-sensitive toggle; regex mode uses a monospace input and shows inline error messages
+- **Saved filter sets** — save the current combination of active filters as a named set; reload or delete saved sets at any time; filters are fully serialisable (survive reloads and cross-session use)
+- Active filter chips shown in the table toolbar for quick removal
+- **Stats panel** — per-column statistics cards showing type, value count, completeness bar, and (for numeric columns) a mini 16-bucket distribution histogram coloured by the active palette
 
 ### Graph view
 - 9 chart types: Bar, Line, Area, Stacked, Scatter, Bubble, Doughnut, Radar, Polar
@@ -111,7 +124,8 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 | ⌘\\      | Toggle filter panel                       |
 | ⌘F       | Find in table                             |
 | ⌘H       | Find & Replace                            |
-| ⌘Z           | Undo last table edit / row change              |
+| ⌘Z           | Undo last edit / column operation              |
+| ⌘⇧Z          | Redo                                           |
 | ⌘↵           | Add row (table view) · Run query (SQL)         |
 | ⌘A           | Select all visible rows                        |
 | ⌘S           | Save current graph                             |
