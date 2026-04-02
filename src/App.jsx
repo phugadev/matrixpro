@@ -13,8 +13,7 @@ import Welcome    from './components/Welcome'
 import Modal      from './components/Modal'
 import NewDatasetModal from './components/NewDatasetModal'
 import s          from './App.module.css'
-import { makeDS }   from './lib/data'
-import { isNumericCol } from './lib/data'
+import { makeDS, isNumericCol, evalFormula } from './lib/data'
 import Papa from 'papaparse'
 
 const isElectron = !!window.MP
@@ -62,6 +61,11 @@ function Inner () {
   const [saveModal,   setSaveModal]   = useState(false)
   const [renameModal, setRenameModal] = useState(false)
   const [groupModal,  setGroupModal]  = useState(false)
+  const [formulaModal,  setFormulaModal]  = useState(false)
+  const [formulaCol,    setFormulaCol]    = useState(null)
+  const [formulaName,   setFormulaName]   = useState('')
+  const [formulaText,   setFormulaText]   = useState('')
+  const [formulaError,  setFormulaError]  = useState('')
   const [saveName,    setSaveName]    = useState('')
   const [renameName,  setRenameName]  = useState('')
   const [groupBy,     setGroupBy]     = useState('')
@@ -110,7 +114,7 @@ function Inner () {
       if (!persistedIds.current.has(t.id)) {
         persistedIds.current.add(t.id)
         openStates.current.set(t.id, true)
-        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null }).catch(() => {})
+        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null }).catch(() => {})
       }
     })
   }, [state.tabs])
@@ -121,7 +125,7 @@ function Inner () {
     if (!isElectron) return
     state.tabs.forEach(t => {
       if (persistedIds.current.has(t.id)) {
-        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null }).catch(() => {})
+        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null }).catch(() => {})
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,10 +154,10 @@ function Inner () {
     if (!isElectron || !ds) return
     clearTimeout(rowSaveTimer.current)
     rowSaveTimer.current = setTimeout(() => {
-      window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null }).catch(() => {})
+      window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
     }, 800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ds?.rows, ds?.pinnedTypes])
+  }, [ds?.rows, ds?.pinnedTypes, ds?.computedCols])
 
   // ── Persist open/close state changes to SQLite ──────────────────────────────
   useEffect(() => {
@@ -246,7 +250,7 @@ function Inner () {
       const newDs = makeDS('Pasted data', res.data, state.tabs.length)
       newDs.cols = res.meta.fields.filter(c => c && c.trim())
       addTab(newDs)
-      if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null }).catch(() => {})
+      if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
       toast(`Pasted ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '📋')
     }
     document.addEventListener('paste', handler)
@@ -255,9 +259,10 @@ function Inner () {
 
   // ── Drag & drop ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const enter = () => { dropCount.current++; setDropping(true) }
-    const leave = () => { dropCount.current--; if (dropCount.current <= 0) { dropCount.current = 0; setDropping(false) } }
-    const over  = e => e.preventDefault()
+    const isFileDrag = e => e.dataTransfer.types.includes('Files')
+    const enter = e => { if (!isFileDrag(e)) return; dropCount.current++; setDropping(true) }
+    const leave = e => { if (!isFileDrag(e)) return; dropCount.current--; if (dropCount.current <= 0) { dropCount.current = 0; setDropping(false) } }
+    const over  = e => { if (isFileDrag(e)) e.preventDefault() }
     const drop  = e => {
       e.preventDefault(); dropCount.current = 0; setDropping(false)
       const f = e.dataTransfer.files[0]; if (!f) return
@@ -285,7 +290,7 @@ function Inner () {
     const newDs = makeDS(filename.replace(/\.[^.]+$/, ''), res.data, state.tabs.length)
     newDs.cols = (res.meta.fields || []).filter(c => c && c.trim())
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null }).catch(() => {})
     toast(`Loaded ${newDs.rows.length.toLocaleString()} rows`, '📂')
   }, [state.tabs.length, addTab, toast])
 
@@ -398,7 +403,7 @@ function Inner () {
     newDs.pinnedTypes = ds.pinnedTypes ? { ...ds.pinnedTypes } : null
     newDs.workspaceId = ds.workspaceId ?? null
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: newDs.workspaceId, pinnedTypes: newDs.pinnedTypes ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: newDs.workspaceId, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: newDs.computedCols ?? null }).catch(() => {})
     toast(`Duplicated "${ds.name}"`, '⎘')
   }, [ds, state.tabs.length, addTab, toast])
 
@@ -406,7 +411,7 @@ function Inner () {
   const changeColor = useCallback((color) => {
     if (!ds) return
     updateDS(ds.id, { color })
-    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
   }, [ds, updateDS])
 
   // ── Rename dataset ──────────────────────────────────────────────────────────
@@ -417,7 +422,7 @@ function Inner () {
   const confirmRename = useCallback(() => {
     if (!ds || !renameName.trim()) return
     updateDS(ds.id, { name: renameName.trim() })
-    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: renameName.trim(), color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: renameName.trim(), color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
     setRenameModal(false)
     toast(`Renamed to "${renameName.trim()}"`, '✎')
   }, [ds, renameName, updateDS, toast])
@@ -460,7 +465,7 @@ function Inner () {
     })
     const newDs = makeDS(`${ds.name} (by ${groupBy})`, newRows, state.tabs.length)
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null }).catch(() => {})
     setGroupModal(false)
     toast(`Grouped by "${groupBy}" — ${groupFn}`, '⬡')
   }, [ds, groupBy, groupFn, state.tabs.length, addTab, toast])
@@ -488,6 +493,63 @@ function Inner () {
     toast('All filters cleared')
   }, [ds, updateDS, toast])
 
+  // ── Computed columns ─────────────────────────────────────────────────────────
+  const openAddComputedCol = useCallback(() => {
+    if (!ds) return
+    setFormulaCol(null); setFormulaName(''); setFormulaText(''); setFormulaError('')
+    setFormulaModal(true)
+  }, [ds])
+
+  const openEditComputedCol = useCallback((col) => {
+    if (!ds) return
+    setFormulaCol(col)
+    setFormulaName(col)
+    setFormulaText(ds.computedCols?.[col]?.formula || '')
+    setFormulaError('')
+    setFormulaModal(true)
+  }, [ds])
+
+  const confirmFormula = useCallback(() => {
+    if (!ds) return
+    const n = formulaName.trim()
+    const f = formulaText.trim()
+    if (!n) { setFormulaError('Column name is required'); return }
+    if (!f) { setFormulaError('Formula is required'); return }
+    if (!formulaCol && ds.cols.includes(n)) { setFormulaError(`"${n}" already exists`); return }
+    if (formulaCol && n !== formulaCol && ds.cols.includes(n)) { setFormulaError(`"${n}" already exists`); return }
+
+    const cc = { ...(ds.computedCols || {}) }
+    let newCols      = [...ds.cols]
+    let newHidden    = [...(ds.hiddenCols || [])]
+    let newColWidths = { ...(ds.colWidths || {}) }
+
+    if (formulaCol) {
+      delete cc[formulaCol]
+      cc[n] = { formula: f }
+      newCols      = newCols.map(c => c === formulaCol ? n : c)
+      newHidden    = newHidden.map(c => c === formulaCol ? n : c)
+      if (formulaCol in newColWidths) { newColWidths[n] = newColWidths[formulaCol]; delete newColWidths[formulaCol] }
+    } else {
+      cc[n] = { formula: f }
+      newCols = [...newCols, n]
+    }
+
+    updateDS(ds.id, { computedCols: cc, cols: newCols, hiddenCols: newHidden, colWidths: newColWidths })
+    setFormulaModal(false)
+    toast(formulaCol ? `Updated "${n}"` : `Added computed column "${n}"`)
+  }, [ds, formulaCol, formulaName, formulaText, updateDS, toast])
+
+  const deleteComputedCol = useCallback(() => {
+    if (!ds || !formulaCol) return
+    const { [formulaCol]: _, ...cc } = (ds.computedCols || {})
+    const newCols      = ds.cols.filter(c => c !== formulaCol)
+    const newHidden    = (ds.hiddenCols || []).filter(c => c !== formulaCol)
+    const { [formulaCol]: __, ...newColWidths } = (ds.colWidths || {})
+    updateDS(ds.id, { computedCols: cc, cols: newCols, hiddenCols: newHidden, colWidths: newColWidths })
+    setFormulaModal(false)
+    toast(`Deleted "${formulaCol}"`)
+  }, [ds, formulaCol, updateDS, toast])
+
   // ── Create blank dataset from scratch ───────────────────────────────────────
   // cols is [{ name: string, type: string }]
   const createScratch = useCallback((name, cols) => {
@@ -496,7 +558,7 @@ function Inner () {
     newDs.rows        = []
     newDs.pinnedTypes = Object.fromEntries(cols.map(c => [c.name, c.type]))
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: newDs.pinnedTypes ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: null }).catch(() => {})
     toast(`Created "${name}"`, '✓')
   }, [state.tabs.length, addTab, toast])
 
@@ -522,11 +584,12 @@ function Inner () {
               onExportJSON={doExportJSON}
               onGroup={openGroupModal}
               onClearFilters={clearAllFilters}
+              onAddComputedCol={openAddComputedCol}
             />
 
             <div className={s.content}>
               <div className={s.center}>
-                {state.view === 'table' && <DataTable ds={ds} />}
+                {state.view === 'table' && <DataTable ds={ds} onAddComputedCol={openAddComputedCol} onEditComputedCol={openEditComputedCol} />}
                 {state.view === 'graph' && (
                   <ChartView
                     ds={ds}
@@ -639,6 +702,76 @@ function Inner () {
             <option value="max">Max</option>
             <option value="count">Count only</option>
           </select>
+        </Modal>
+      )}
+
+      {/* Formula modal — add / edit computed column */}
+      {formulaModal && ds && (
+        <Modal
+          title={formulaCol ? 'Edit computed column' : 'Add computed column'}
+          subtitle={!formulaCol ? 'Define a formula using column names as variables.' : undefined}
+          onClose={() => setFormulaModal(false)}
+          onConfirm={confirmFormula}
+          confirmLabel={formulaCol ? 'Save changes' : 'Add column'}
+        >
+          <label className={s.mLabel}>Column name</label>
+          <input
+            className={s.input}
+            value={formulaName}
+            onChange={e => { setFormulaName(e.target.value); setFormulaError('') }}
+            placeholder="e.g. Profit Margin"
+            autoFocus
+          />
+          <label className={s.mLabel}>Formula</label>
+          <input
+            className={s.input}
+            value={formulaText}
+            onChange={e => { setFormulaText(e.target.value); setFormulaError('') }}
+            onKeyDown={e => e.key === 'Enter' && confirmFormula()}
+            placeholder="e.g. Revenue - Cost"
+            style={{ fontFamily: 'var(--m)' }}
+          />
+          {/* Column name chips — click to insert safe identifier */}
+          <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {ds.cols.filter(c => !ds.computedCols?.[c]).map(c => {
+              const safe = c.replace(/[^a-zA-Z0-9_$]/g, '_')
+              return (
+                <button
+                  key={c}
+                  style={{ fontSize: 10, padding: '2px 6px', background: 'var(--bg5)', border: '1px solid var(--bd2)', borderRadius: 4, color: 'var(--tx2)', cursor: 'pointer', fontFamily: 'var(--m)' }}
+                  onClick={() => setFormulaText(prev => prev ? `${prev} + ${safe}` : safe)}
+                  title={safe !== c ? `"${c}" — insert as ${safe}` : 'Insert column name'}
+                >{safe}</button>
+              )
+            })}
+          </div>
+          {/* Live preview */}
+          {formulaText.trim() && ds.rows.length > 0 && (
+            <div style={{ marginTop: 8, background: 'var(--bg4)', border: '1px solid var(--bd1)', borderRadius: 6, padding: '7px 10px', fontSize: 11, fontFamily: 'var(--m)', color: 'var(--tx2)' }}>
+              <div style={{ color: 'var(--tx3)', marginBottom: 4, fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.04em' }}>Preview</div>
+              {ds.rows.slice(0, 5).map((row, i) => {
+                const val   = evalFormula(formulaText.trim(), row)
+                const isErr = val === ''
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 10, lineHeight: 1.9 }}>
+                    <span style={{ color: 'var(--tx3)', minWidth: 36 }}>row {i + 1}</span>
+                    <span style={{ color: isErr ? '#f43f5e' : 'var(--tx1)' }}>{isErr ? 'error' : String(val)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {formulaError && (
+            <div style={{ marginTop: 8, color: '#f43f5e', fontSize: 11 }}>{formulaError}</div>
+          )}
+          {formulaCol && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--bd1)' }}>
+              <button
+                onClick={deleteComputedCol}
+                style={{ background: 'none', border: '1px solid rgba(244,63,94,.35)', borderRadius: 5, color: '#f43f5e', fontSize: 11, cursor: 'pointer', padding: '5px 10px' }}
+              >Delete column</button>
+            </div>
+          )}
         </Modal>
       )}
     </div>

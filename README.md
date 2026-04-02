@@ -53,9 +53,14 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - Workspaces and assignments survive app restarts — stored in SQLite alongside datasets
 
 ### Table view
-- Sortable columns, formatted numbers, date parsing, and categorical value pills
+- Virtualised rendering — only visible rows are in the DOM; handles large datasets without slowdown
+- Formatted numbers, date parsing, and categorical value pills
 - Row and column count always visible in the toolbar stat pill; hidden columns shown as `N / total cols`
 - **Inline cell editing** — double-click any cell to edit; Tab / Enter to move to the next cell, Esc to cancel
+- **Column reordering** — drag any column header left or right to reorder; order persists to the dataset
+- **Column resizing** — drag the right edge of any header
+- **Freeze columns** — hover a column header and click the pin icon to freeze that column (and everything to its left); frozen columns stay fixed during horizontal scroll with a visual separator
+- **Multi-sort** — click ⇅ to sort by a column; Shift+click to add more sort keys; priority indicators (↑¹ ↓²) show order; Shift+click a sorted column again to flip direction or remove it from the sort stack
 - **Column rename** — double-click any column header label to rename it inline; all rows, types, and widths update automatically
 - **Column type override** — click the type badge (T / # / D / B / C) in any column header to cycle through types
 - **Undo** (**⌘Z**) — steps back through cell edits, row additions, and row deletions (50-step history per dataset)
@@ -64,8 +69,10 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - Add rows with **⌘↵** or the footer button; delete rows by hovering the row number and clicking ×
 - Category columns auto-assign distinct colours to each unique value
 - Boolean columns render as green/red pills
+- **Row selection** — click the row index to select a row; Shift+click for range select; ⌘+click to toggle; ⌘A to select all visible rows
+- **Bulk actions** — duplicate, copy as TSV to clipboard, or delete selected rows from the action bar
 - Active filters shown as chips with one-click removal
-- Column visibility toggle — hide/show individual columns via the toolbar
+- Column visibility toggle — hide/show individual columns via the toolbar; search by name for wide datasets
 - Group & aggregate — create a new summarised dataset by category
 
 ### Graph view
@@ -104,11 +111,13 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 | ⌘\\      | Toggle filter panel                       |
 | ⌘F       | Find in table                             |
 | ⌘H       | Find & Replace                            |
-| ⌘Z       | Undo last table edit / row change         |
-| ⌘↵       | Add row (table view) · Run query (SQL)    |
-| ⌘S       | Save current graph                        |
-| ⌘E       | Export CSV                                |
-| Esc      | Close modal / cancel edit / close search  |
+| ⌘Z           | Undo last table edit / row change              |
+| ⌘↵           | Add row (table view) · Run query (SQL)         |
+| ⌘A           | Select all visible rows                        |
+| ⌘S           | Save current graph                             |
+| ⌘E           | Export CSV                                     |
+| Shift+click ⇅ | Add column to multi-sort (or flip/remove)     |
+| Esc          | Close modal / cancel edit / clear selection    |
 
 ---
 

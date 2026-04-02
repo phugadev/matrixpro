@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useApp } from '../store/AppContext'
-import { fmtCell, fmtN, detectColType, buildCatColorMap, parseDate, fmtDate, parseNumeric } from '../lib/data'
+import { fmtCell, fmtN, detectColType, buildCatColorMap, parseDate, fmtDate, parseNumeric, evalFormula } from '../lib/data'
 import { PALETTES, COL_TYPES, COL_TYPE_ORDER } from '../lib/constants'
 import s from './DataTable.module.css'
 
@@ -18,18 +18,26 @@ function applyFilters (rows, filters) {
   return Object.values(filters).reduce((acc, fn) => acc.filter(fn), rows)
 }
 
-function applySort (rows, col, dir, colType) {
-  if (!col) return rows
+function applySort (rows, sorts, colTypes) {
+  if (!sorts?.length) return rows
   return [...rows].sort((a, b) => {
-    const av = a[col], bv = b[col]
-    if (colType === 'date') {
-      const at = parseDate(av).getTime(), bt = parseDate(bv).getTime()
-      if (!isNaN(at) && !isNaN(bt)) return (at - bt) * dir
+    for (const { col, dir } of sorts) {
+      const av = a[col], bv = b[col]
+      let cmp = 0
+      if (colTypes[col] === 'date') {
+        const at = parseDate(av)?.getTime?.() ?? NaN
+        const bt = parseDate(bv)?.getTime?.() ?? NaN
+        if (!isNaN(at) && !isNaN(bt)) cmp = (at - bt) * dir
+      }
+      if (cmp === 0) {
+        const an = parseNumeric(av), bn = parseNumeric(bv)
+        cmp = !isNaN(an) && !isNaN(bn)
+          ? (an - bn) * dir
+          : String(av ?? '').localeCompare(String(bv ?? '')) * dir
+      }
+      if (cmp !== 0) return cmp
     }
-    const an = parseNumeric(av), bn = parseNumeric(bv)
-    return !isNaN(an) && !isNaN(bn)
-      ? (an - bn) * dir
-      : String(av).localeCompare(String(bv)) * dir
+    return 0
   })
 }
 
@@ -93,7 +101,7 @@ function CellEditor ({ initialValue, colType, onCommit, onCancel, onNavigate }) 
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function DataTable ({ ds, compact = false }) {
+export default function DataTable ({ ds, compact = false, onAddComputedCol, onEditComputedCol }) {
   const { state, dispatch } = useApp()
   const pal = PALETTES[state.palette]
 
@@ -115,7 +123,7 @@ export default function DataTable ({ ds, compact = false }) {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
     setScrollTop(0)
-  }, [ds.id, ds.rows, ds.filters, state.sortCol, state.sortDir])
+  }, [ds.id, ds.rows, ds.filters, ds.sorts])
 
   // ── Derived data ─────────────────────────────────────────────────────────────
   const visibleCols = useMemo(() => {
@@ -125,7 +133,9 @@ export default function DataTable ({ ds, compact = false }) {
 
   const colTypes = useMemo(() => {
     const out = {}
-    ds.cols.forEach(col => { out[col] = detectColType(ds, col) })
+    ds.cols.forEach(col => {
+      out[col] = ds.computedCols?.[col] ? 'computed' : detectColType(ds, col)
+    })
     return out
   }, [ds])
 
@@ -142,8 +152,8 @@ export default function DataTable ({ ds, compact = false }) {
 
   const rows = useMemo(() => {
     const filtered = applyFilters(ds.rows, ds.filters)
-    return applySort(filtered, state.sortCol, state.sortDir, colTypes[state.sortCol])
-  }, [ds.rows, ds.filters, state.sortCol, state.sortDir, colTypes])
+    return applySort(filtered, ds.sorts || [], colTypes)
+  }, [ds.rows, ds.filters, ds.sorts, colTypes])
 
   const numMax = useMemo(() => {
     const out = {}
@@ -359,6 +369,92 @@ export default function DataTable ({ ds, compact = false }) {
     document.addEventListener('mouseup',   onMouseUp)
   }, [colW, ds.id, dispatch])
 
+  // ── Column drag-to-reorder ────────────────────────────────────────────────────
+  const [dragCol,     setDragCol]     = useState(null)
+  const [dragOverCol, setDragOverCol] = useState(null)
+
+  const handleColDragStart = useCallback((e, col) => {
+    e.dataTransfer.effectAllowed = 'move'
+    const ghost = document.createElement('div')
+    ghost.style.cssText = 'position:fixed;top:-200px;left:-200px;padding:3px 10px;background:var(--bg4);border:1px solid var(--bd2);border-radius:5px;font-size:12px;color:var(--tx1);font-family:var(--f);pointer-events:none'
+    ghost.textContent = col
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 0, 0)
+    setTimeout(() => ghost.remove(), 0)
+    setDragCol(col)
+  }, [])
+
+  const handleColDragOver = useCallback((e, col) => {
+    if (dragCol && col !== dragCol) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      setDragOverCol(col)
+    }
+  }, [dragCol])
+
+  const handleColDragEnd = useCallback(() => {
+    setDragCol(null)
+    setDragOverCol(null)
+  }, [])
+
+  const handleColDrop = useCallback((e, targetCol) => {
+    e.preventDefault()
+    if (!dragCol || dragCol === targetCol) { setDragCol(null); setDragOverCol(null); return }
+    const cols = [...ds.cols]
+    const fi = cols.indexOf(dragCol)
+    const ti = cols.indexOf(targetCol)
+    if (fi === -1 || ti === -1) return
+    cols.splice(fi, 1)
+    cols.splice(ti, 0, dragCol)
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols } })
+    setDragCol(null)
+    setDragOverCol(null)
+  }, [dragCol, ds.cols, ds.id, dispatch])
+
+  // ── Freeze/pin columns ────────────────────────────────────────────────────────
+  const pinnedCount = ds.pinnedCols || 0
+
+  const pinnedLeftOffsets = useMemo(() => {
+    const out = {}
+    let left = 48 // row # column width
+    visibleCols.forEach((col, i) => {
+      if (i < pinnedCount) {
+        out[col] = left
+        left += colW(col)
+      }
+    })
+    return out
+  }, [visibleCols, pinnedCount, colW, colWidths]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const togglePin = useCallback((colVisIdx) => {
+    const cur = ds.pinnedCols || 0
+    const next = colVisIdx < cur ? colVisIdx : colVisIdx + 1
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { pinnedCols: next } })
+  }, [ds.pinnedCols, ds.id, dispatch])
+
+  // ── Multi-sort ────────────────────────────────────────────────────────────────
+  const sortBy = useCallback((col, isMulti) => {
+    const sorts = ds.sorts || []
+    const existing = sorts.find(s => s.col === col)
+    let newSorts
+    if (isMulti) {
+      if (existing) {
+        newSorts = existing.dir === 1
+          ? sorts.map(s => s.col === col ? { col, dir: -1 } : s)
+          : sorts.filter(s => s.col !== col)
+      } else {
+        newSorts = [...sorts, { col, dir: 1 }]
+      }
+    } else {
+      if (existing && sorts.length === 1) {
+        newSorts = [{ col, dir: existing.dir * -1 }]
+      } else {
+        newSorts = [{ col, dir: 1 }]
+      }
+    }
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { sorts: newSorts } })
+  }, [ds.sorts, ds.id, dispatch])
+
   // ── Cell editing ──────────────────────────────────────────────────────────────
   // editingCell: { dsRowIdx: number, col: string } | null
   // dsRowIdx is the index in ds.rows (stable across sort/filter)
@@ -382,13 +478,14 @@ export default function DataTable ({ ds, compact = false }) {
 
   const addRow = useCallback((startCol) => {
     dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
-    const empty       = Object.fromEntries(ds.cols.map(c => [c, '']))
+    const empty       = Object.fromEntries(ds.cols.filter(c => !ds.computedCols?.[c]).map(c => [c, '']))
     const newRows     = [...ds.rows, empty]
     const newDsRowIdx = newRows.length - 1
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
+    const firstEditCol = startCol || visibleCols.find(c => !ds.computedCols?.[c]) || visibleCols[0]
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
-      setEditingCell({ dsRowIdx: newDsRowIdx, col: startCol || visibleCols[0] || ds.cols[0] })
+      setEditingCell({ dsRowIdx: newDsRowIdx, col: firstEditCol })
     }, 30)
   }, [ds.rows, ds.cols, ds.id, dispatch, visibleCols])
 
@@ -408,7 +505,7 @@ export default function DataTable ({ ds, compact = false }) {
     if (dir === 'down' && ri >= searchedRows.length - 1) {
       dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
       const updatedRows = ds.rows.map((r, i) => i === dsRowIdx ? { ...r, [col]: newVal } : r)
-      const empty       = Object.fromEntries(ds.cols.map(c => [c, '']))
+      const empty       = Object.fromEntries(ds.cols.filter(c => !ds.computedCols?.[c]).map(c => [c, '']))
       const newRows     = [...updatedRows, empty]
       dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
       setTimeout(() => {
@@ -515,7 +612,10 @@ export default function DataTable ({ ds, compact = false }) {
     if (selectedRows.size === 0) return
     const sorted = [...selectedRows].sort((a, b) => a - b)
     const header = visibleCols.join('\t')
-    const body   = sorted.map(i => visibleCols.map(c => ds.rows[i]?.[c] ?? '').join('\t')).join('\n')
+    const body   = sorted.map(i => visibleCols.map(c => {
+      const cc = ds.computedCols?.[c]
+      return cc ? String(evalFormula(cc.formula, ds.rows[i] ?? {}) ?? '') : (ds.rows[i]?.[c] ?? '')
+    }).join('\t')).join('\n')
     navigator.clipboard.writeText(header + '\n' + body).then(() => {
       setCopiedFeedback(true)
       setTimeout(() => setCopiedFeedback(false), 1600)
@@ -544,7 +644,6 @@ export default function DataTable ({ ds, compact = false }) {
   }, [addRow, editingCell, searchOpen, ds.id, dispatch, toggleSelectAll, selectedRows])
 
   // ── Render ───────────────────────────────────────────────────────────────────
-  const sortBy      = col => dispatch({ type: 'SET_SORT', col })
   const activeQuery = searchQuery.trim()
 
   // Selection derived state
@@ -649,6 +748,7 @@ export default function DataTable ({ ds, compact = false }) {
             {visibleCols.map(col => (
               <col key={col} style={{ width: colW(col) }} />
             ))}
+            {onAddComputedCol && <col key="__add_computed_col" style={{ width: 36 }} />}
           </colgroup>
 
           {/* ── Header ── */}
@@ -687,13 +787,21 @@ export default function DataTable ({ ds, compact = false }) {
                   </button>
                 </div>
               </th>
-              {visibleCols.map(col => {
-                const ct       = colTypes[col]
-                const vals     = ds.rows.map(r => r[col]).filter(v => v !== undefined && v !== '')
-                const isActive = state.sortCol === col
-                const arr      = isActive ? (state.sortDir === 1 ? ' ↑' : ' ↓') : ''
+              {visibleCols.map((col, colVisIdx) => {
+                const ct         = colTypes[col]
+                const isComputed = ct === 'computed'
+                const formula    = ds.computedCols?.[col]?.formula || ''
+                const vals       = isComputed
+                  ? ds.rows.map(r => evalFormula(formula, r)).filter(v => v !== '' && v != null)
+                  : ds.rows.map(r => r[col]).filter(v => v !== undefined && v !== '')
+                const sorts      = ds.sorts || []
+                const sortEntry  = sorts.find(s => s.col === col)
+                const isActive   = !!sortEntry
+                const sortPri    = sorts.length > 1 ? sorts.findIndex(s => s.col === col) + 1 : 0
                 let metaEl = null
-                if (ct === 'numeric') {
+                if (isComputed) {
+                  metaEl = <span style={{ fontStyle: 'italic' }}>= {formula}</span>
+                } else if (ct === 'numeric') {
                   const ns = vals.map(parseNumeric)
                   metaEl = <>Min <b>{fmtN(Math.min(...ns))}</b> Max <b>{fmtN(Math.max(...ns))}</b></>
                 } else if (ct === 'date') {
@@ -704,18 +812,40 @@ export default function DataTable ({ ds, compact = false }) {
                 } else {
                   metaEl = <><b>{new Set(vals).size}</b> unique</>
                 }
-                const tb = COL_TYPES[ct] || COL_TYPES.text
+                const tb        = COL_TYPES[ct] || COL_TYPES.text
+                const isPinned  = colVisIdx < pinnedCount
+                const isLastPin = colVisIdx === pinnedCount - 1
+                const thStyle   = isPinned
+                  ? { position: 'sticky', left: pinnedLeftOffsets[col], zIndex: 4 }
+                  : {}
+                const thCls = [
+                  dragOverCol === col && dragCol !== col ? s.colDragOver : '',
+                  dragCol === col ? s.colDragging : '',
+                  isLastPin ? s.pinnedLast : '',
+                ].filter(Boolean).join(' ') || undefined
                 return (
-                  <th key={col}>
+                  <th
+                    key={col}
+                    className={thCls}
+                    style={thStyle}
+                    draggable={renamingCol !== col}
+                    onDragStart={e => handleColDragStart(e, col)}
+                    onDragOver={e => handleColDragOver(e, col)}
+                    onDragEnd={handleColDragEnd}
+                    onDrop={e => handleColDrop(e, col)}
+                  >
                     <div className={s.thi}>
                       <div className={s.thName}>
                         <span
                           className={s.colTypeBadge}
                           style={{ color: tb.color, background: tb.bg }}
-                          onClick={e => { e.stopPropagation(); cycleType(col) }}
-                          title={`Type: ${tb.title} — click to change`}
+                          onClick={e => {
+                            e.stopPropagation()
+                            isComputed ? onEditComputedCol?.(col) : cycleType(col)
+                          }}
+                          title={isComputed ? `Formula: ${formula} — click to edit` : `Type: ${tb.title} — click to change`}
                         >{tb.label}</span>
-                        {renamingCol === col ? (
+                        {!isComputed && renamingCol === col ? (
                           <input
                             ref={renameInputRef}
                             className={s.colRenameInput}
@@ -731,18 +861,38 @@ export default function DataTable ({ ds, compact = false }) {
                         ) : (
                           <span
                             className={s.thLabel}
-                            onDoubleClick={e => startRenameCol(col, e)}
-                            title="Double-click to rename"
+                            onDoubleClick={!isComputed ? (e => startRenameCol(col, e)) : undefined}
+                            title={isComputed ? `= ${formula}` : 'Double-click to rename · drag to reorder'}
                           >{col}</span>
                         )}
-                        <span
-                          className={s.sortBtn + (isActive ? ' ' + s.sortOn : '')}
-                          onClick={() => sortBy(col)}
-                          title="Sort"
-                        >⇅</span>
-                        {arr && <span className={s.sortDir}>{arr}</span>}
+                        {!isComputed && (
+                          <span
+                            className={s.sortBtn + (isActive ? ' ' + s.sortOn : '')}
+                            onClick={e => { e.stopPropagation(); sortBy(col, e.shiftKey) }}
+                            title={isActive
+                              ? `Sorted ${sortEntry.dir === 1 ? 'A→Z' : 'Z→A'}${sortPri ? ` (#${sortPri})` : ''} · click to flip · ⇧+click to add/remove from multi-sort`
+                              : 'Sort · ⇧+click to add to multi-sort'}
+                          >
+                            {isActive ? (sortEntry.dir === 1 ? '↑' : '↓') : '⇅'}
+                            {sortPri > 0 && <span className={s.sortPri}>{sortPri}</span>}
+                          </span>
+                        )}
                       </div>
-                      <div className={s.thMeta}>{metaEl}</div>
+                      <div className={s.thMeta}>
+                        {metaEl}
+                        {!isComputed && (
+                          <button
+                            className={s.pinBtn + (isPinned ? ' ' + s.pinBtnOn : '')}
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); togglePin(colVisIdx) }}
+                            title={isPinned ? 'Unfreeze column' : 'Freeze column'}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor">
+                              <path d="M9.5 2L14 6.5l-2 2-1.5-.5-2 2 .5 1.5-1.5 1.5-3-3-3 3-1-1 3-3-3-3 1.5-1.5 1.5.5 2-2L9.5 2z"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div
                       className={`${s.resizeHandle}${draggingCol === col ? ' ' + s.resizeHandleActive : ''}`}
@@ -752,6 +902,23 @@ export default function DataTable ({ ds, compact = false }) {
                   </th>
                 )
               })}
+              {onAddComputedCol && (
+                <th key="__add_computed" style={{ width: 36, minWidth: 36 }}>
+                  <div className={s.thi} style={{ padding: '0 4px', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <button
+                      onClick={onAddComputedCol}
+                      title="Add computed column"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', borderRadius: 4, padding: '3px 5px', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--tx1)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--tx3)'}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                        <path d="M6 1v10M1 6h10"/>
+                      </svg>
+                    </button>
+                  </div>
+                </th>
+              )}
             </tr>
           </thead>
 
@@ -759,7 +926,7 @@ export default function DataTable ({ ds, compact = false }) {
           <tbody>
             {topPad > 0 && (
               <tr aria-hidden="true">
-                <td colSpan={visibleCols.length + 1} className={s.spacer} style={{ height: topPad }} />
+                <td colSpan={visibleCols.length + 1 + (onAddComputedCol ? 1 : 0)} className={s.spacer} style={{ height: topPad }} />
               </tr>
             )}
 
@@ -808,19 +975,27 @@ export default function DataTable ({ ds, compact = false }) {
                       </button>
                     )}
                   </td>
-                  {visibleCols.map(col => {
-                    const cell         = fmtCell(row[col], colTypes[col], catColorMaps[col])
+                  {visibleCols.map((col, colVisIdx) => {
+                    const isComputed   = colTypes[col] === 'computed'
+                    const rawVal       = isComputed ? evalFormula(ds.computedCols[col].formula, row) : row[col]
+                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col])
                     const nm           = numMax[col]
-                    const pct          = nm ? Math.abs(parseNumeric(row[col]) || 0) / nm.max * 100 : 0
-                    const isEditCell   = isEditRow && editingCell?.col === col
+                    const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
+                    const isEditCell   = !isComputed && isEditRow && editingCell?.col === col
                     const activeMatch  = matches[matchIdx]
                     const isActiveMth  = activeMatch?.dsRowIdx === dsRowIdx && activeMatch?.col === col
                     const isAnyMth     = !isActiveMth && matchSet.has(`${dsRowIdx}:${col}`)
+                    const isPinnedCol  = colVisIdx < pinnedCount
+                    const isLastPin    = colVisIdx === pinnedCount - 1
+                    const tdStyle = isPinnedCol
+                      ? { ...(isComputed ? { background: 'rgba(251,146,60,.04)' } : {}), position: 'sticky', left: pinnedLeftOffsets[col] }
+                      : isComputed ? { background: 'rgba(251,146,60,.04)' } : undefined
                     return (
                       <td
                         key={col}
-                        className={[s.td, isEditCell ? s.tdEditing : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : ''].filter(Boolean).join(' ')}
-                        onDoubleClick={() => !searchOpen && setEditingCell({ dsRowIdx, col })}
+                        className={[s.td, isEditCell ? s.tdEditing : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : '', isPinnedCol ? s.pinnedTd : '', isLastPin ? s.pinnedLast : ''].filter(Boolean).join(' ')}
+                        style={tdStyle}
+                        onDoubleClick={!isComputed ? () => !searchOpen && setEditingCell({ dsRowIdx, col }) : undefined}
                       >
                         {isEditCell ? (
                           <CellEditor
@@ -844,13 +1019,14 @@ export default function DataTable ({ ds, compact = false }) {
                       </td>
                     )
                   })}
+                  {onAddComputedCol && <td key="__add_computed" className={s.td} style={{ borderLeft: 'none' }} />}
                 </tr>
               )
             })}
 
             {bottomPad > 0 && (
               <tr aria-hidden="true">
-                <td colSpan={visibleCols.length + 1} className={s.spacer} style={{ height: bottomPad }} />
+                <td colSpan={visibleCols.length + 1 + (onAddComputedCol ? 1 : 0)} className={s.spacer} style={{ height: bottomPad }} />
               </tr>
             )}
           </tbody>

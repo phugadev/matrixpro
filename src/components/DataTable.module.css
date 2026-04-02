@@ -6,10 +6,18 @@
 .table th {
   background: var(--bg3); border-bottom: 1px solid var(--bd2);
   border-right: 1px solid var(--bd1); text-align: left; padding: 0;
-  position: relative;
+  position: relative; /* overridden to sticky for pinned cols via inline style */
 }
 .thi       { padding: 8px 12px 6px; display: flex; flex-direction: column; gap: 2px; }
 .idx       { min-width: 40px; max-width: 40px; align-items: center; padding: 8px 4px; position: relative; }
+
+/* Row # column: always sticky at the left edge */
+.table th:first-child { position: sticky; left: 0; z-index: 5; }
+.table td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg1); }
+.alt td:first-child   { background: var(--bg3); }
+.dataRow:hover td:first-child { background: var(--bg4); }
+.selectedRow td:first-child   { background: rgba(99,102,241,.09) !important; }
+.selectedRow:hover td:first-child { background: rgba(99,102,241,.15) !important; }
 
 /* Resize handle — sits at the right edge of every <th> */
 .resizeHandle {
@@ -50,7 +58,7 @@
 .sortBtn   { cursor: pointer; color: var(--tx3); border-radius: 3px; padding: 1px 2px; font-size: 11px; flex-shrink: 0; transition: color var(--ease); }
 .sortBtn:hover, .sortOn { color: var(--ac2); }
 .sortDir   { font-size: 10px; color: var(--ac2); flex-shrink: 0; }
-.thMeta    { font-size: 9.5px; color: var(--tx3); font-family: var(--m); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thMeta    { font-size: 9.5px; color: var(--tx3); font-family: var(--m); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
 .thMeta b  { color: var(--tx2); font-weight: 500; }
 
 .table td {
@@ -319,6 +327,41 @@
   transition: all .1s;
 }
 .actionDismiss:hover { background: var(--bg5); color: var(--tx1); }
+
+/* ── Column drag-to-reorder ─────────────────────────────────────────────── */
+.colDragging { opacity: .35; }
+.colDragOver { outline: 2px solid var(--ac); outline-offset: -2px; }
+.colDragOver th { background: rgba(99,102,241,.08); }
+
+/* ── Frozen/pinned columns ──────────────────────────────────────────────── */
+/* Body cells in pinned columns need explicit background (sticky cells are on top) */
+.pinnedTd { z-index: 1; background: var(--bg1); }
+.alt .pinnedTd { background: var(--bg3); }
+.dataRow:hover .pinnedTd { background: var(--bg4); }
+.selectedRow .pinnedTd { background: rgba(99,102,241,.09) !important; }
+.selectedRow:hover .pinnedTd { background: rgba(99,102,241,.15) !important; }
+
+/* Separator line after last pinned column */
+.pinnedLast th, .pinnedLast td { border-right: 2px solid var(--bd2) !important; }
+
+/* Pin toggle button — lives in .thMeta, hidden unless hovered or active */
+.pinBtn {
+  display: none; align-items: center; justify-content: center;
+  margin-left: auto; padding: 1px 3px; flex-shrink: 0;
+  background: none; border: none; cursor: pointer;
+  color: var(--tx3); border-radius: 3px;
+  transition: color .1s, background .1s;
+}
+.thi:hover .pinBtn { display: flex; }
+.pinBtnOn { display: flex !important; color: var(--ac2) !important; }
+.pinBtn:hover { color: var(--tx1); background: var(--bg5); }
+
+/* ── Multi-sort priority badge ───────────────────────────────────────────── */
+.sortPri {
+  font-size: 8px; font-weight: 700; font-family: var(--m);
+  color: var(--ac); margin-left: 1px; vertical-align: super;
+  line-height: 1;
+}
 
 /* ── Footer add-row button ───────────────────────────────────────────────── */
 .addRowBtn {

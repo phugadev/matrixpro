@@ -20,8 +20,6 @@ const init = {
   showLabels: false,
   showGrid:   true,
   smoothCurves: true,
-  sortCol:    null,
-  sortDir:    1,
   aggFn:      'sum',
 }
 
@@ -123,13 +121,6 @@ function reducer (state, action) {
 
     case 'SET_AGG':
       return { ...state, aggFn: action.fn }
-
-    case 'SET_SORT':
-      return {
-        ...state,
-        sortCol: action.col,
-        sortDir: state.sortCol === action.col ? state.sortDir * -1 : 1,
-      }
 
     case 'RESTORE_TABS': {
       const openTab = [...action.tabs].reverse().find(t => t.open !== false)
