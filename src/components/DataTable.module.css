@@ -160,6 +160,13 @@
 /* .td inherits from .table td above */
 .td { position: relative; }
 
+/* ── Keyboard-focused cell ───────────────────────────────────────────────── */
+.tdFocused {
+  outline: 2px solid var(--ac);
+  outline-offset: -2px;
+  background: var(--ac-lo) !important;
+}
+
 /* ── Editing ─────────────────────────────────────────────────────────────── */
 .tdEditing {
   outline: 2px solid var(--ac);

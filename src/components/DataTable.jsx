@@ -179,10 +179,17 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     setRenamingCol(col)
   }, [])
 
+  // Snapshot col-related ds fields (for undo)
+  const colSnap = useCallback(() => ({
+    cols: ds.cols, hiddenCols: ds.hiddenCols, pinnedCols: ds.pinnedCols,
+    colWidths: ds.colWidths, pinnedTypes: ds.pinnedTypes, computedCols: ds.computedCols, sorts: ds.sorts,
+  }), [ds])
+
   const commitRenameCol = useCallback((oldCol) => {
     const n = renameVal.trim()
     setRenamingCol(null)
     if (!n || n === oldCol || ds.cols.includes(n)) return
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { ...colSnap(), rows: ds.rows } })
     const cols = ds.cols.map(c => c === oldCol ? n : c)
     const rows = ds.rows.map(r => { const { [oldCol]: v, ...rest } = r; return { ...rest, [n]: v } })
     const pt   = { ...(ds.pinnedTypes || {}) }
@@ -191,10 +198,11 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     const cw   = { ...(ds.colWidths   || {}) }
     if (oldCol in cw) { cw[n] = cw[oldCol]; delete cw[oldCol] }
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols, rows, pinnedTypes: pt, hiddenCols: hc, colWidths: cw } })
-  }, [renameVal, ds, dispatch])
+  }, [renameVal, ds, dispatch, colSnap])
 
   // ── Cycle column type ────────────────────────────────────────────────────────
   const cycleType = useCallback(col => {
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { pinnedTypes: ds.pinnedTypes } })
     const current = colTypes[col] || 'text'
     const next    = COL_TYPE_ORDER[(COL_TYPE_ORDER.indexOf(current) + 1) % COL_TYPE_ORDER.length]
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { pinnedTypes: { ...(ds.pinnedTypes || {}), [col]: next } } })
@@ -293,7 +301,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     if (!match || !searchQuery.trim()) return
     const { dsRowIdx, col } = match
     const regex = new RegExp(escapeRegex(searchQuery.trim()), 'gi')
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const newRows = ds.rows.map((r, i) =>
       i === dsRowIdx ? { ...r, [col]: String(r[col] ?? '').replace(regex, replaceQuery) } : r
     )
@@ -308,7 +316,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
       if (!toReplace[dsRowIdx]) toReplace[dsRowIdx] = new Set()
       toReplace[dsRowIdx].add(col)
     })
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const newRows = ds.rows.map((r, i) => {
       if (!toReplace[i]) return r
       const updated = { ...r }
@@ -404,6 +412,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     const fi = cols.indexOf(dragCol)
     const ti = cols.indexOf(targetCol)
     if (fi === -1 || ti === -1) return
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { cols: ds.cols } })
     cols.splice(fi, 1)
     cols.splice(ti, 0, dragCol)
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols } })
@@ -427,6 +436,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
   }, [visibleCols, pinnedCount, colW, colWidths]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePin = useCallback((colVisIdx) => {
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { pinnedCols: ds.pinnedCols } })
     const cur = ds.pinnedCols || 0
     const next = colVisIdx < cur ? colVisIdx : colVisIdx + 1
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { pinnedCols: next } })
@@ -457,27 +467,29 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
 
   // ── Cell editing ──────────────────────────────────────────────────────────────
   // editingCell: { dsRowIdx: number, col: string } | null
-  // dsRowIdx is the index in ds.rows (stable across sort/filter)
+  // focusedCell: { rowIdx: number, colIdx: number } | null  (rowIdx = index in searchedRows)
   const [editingCell,    setEditingCell]    = useState(null)
+  const [focusedCell,    setFocusedCell]    = useState(null)
   const [selectedRows,   setSelectedRows]   = useState(new Set())
   const [lastClickedRow, setLastClickedRow] = useState(null)
   const [copiedFeedback, setCopiedFeedback] = useState(false)
 
   useEffect(() => {
     setEditingCell(null)
+    setFocusedCell(null)
     setSelectedRows(new Set())
     setLastClickedRow(null)
   }, [ds.id])
 
   const commitEdit = useCallback((dsRowIdx, col, value) => {
     if (dsRowIdx < 0 || dsRowIdx >= ds.rows.length) return
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const newRows = ds.rows.map((r, i) => i === dsRowIdx ? { ...r, [col]: value } : r)
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
   }, [ds.rows, ds.id, dispatch])
 
   const addRow = useCallback((startCol) => {
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const empty       = Object.fromEntries(ds.cols.filter(c => !ds.computedCols?.[c]).map(c => [c, '']))
     const newRows     = [...ds.rows, empty]
     const newDsRowIdx = newRows.length - 1
@@ -490,7 +502,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
   }, [ds.rows, ds.cols, ds.id, dispatch, visibleCols])
 
   const deleteRow = useCallback((dsRowIdx) => {
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const newRows = ds.rows.filter((_, i) => i !== dsRowIdx)
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
     setEditingCell(prev => prev?.dsRowIdx === dsRowIdx ? null : prev)
@@ -503,7 +515,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
 
     // Special case: last row + down → commit + add new row atomically
     if (dir === 'down' && ri >= searchedRows.length - 1) {
-      dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+      dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
       const updatedRows = ds.rows.map((r, i) => i === dsRowIdx ? { ...r, [col]: newVal } : r)
       const empty       = Object.fromEntries(ds.cols.filter(c => !ds.computedCols?.[c]).map(c => [c, '']))
       const newRows     = [...updatedRows, empty]
@@ -584,7 +596,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
 
   const bulkDelete = useCallback(() => {
     if (selectedRows.size === 0) return
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const newRows = ds.rows.filter((_, i) => !selectedRows.has(i))
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: newRows } })
     setSelectedRows(new Set())
@@ -593,7 +605,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
 
   const bulkDuplicate = useCallback(() => {
     if (selectedRows.size === 0) return
-    dispatch({ type: 'PUSH_ROW_HISTORY', dsId: ds.id, rows: ds.rows })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
     const sorted = [...selectedRows].sort((a, b) => a - b)
     const insertAfter = sorted[sorted.length - 1]
     const copies = sorted.map(i => ({ ...ds.rows[i] }))
@@ -622,26 +634,73 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     })
   }, [ds.rows, visibleCols, selectedRows])
 
-  // ⌘↵ to add row; ⌘Z to undo; Escape to exit edit
+  // ⌘↵ add row · ⌘Z undo · ↑↓←→ navigate · Enter/F2 edit · Del clear · Escape
   useEffect(() => {
     const handler = e => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); addRow() }
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey && !editingCell) {
         e.preventDefault()
-        dispatch({ type: 'UNDO_ROWS', dsId: ds.id })
+        dispatch({ type: 'UNDO_ACTION', dsId: ds.id })
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !editingCell && !searchOpen) {
         e.preventDefault()
         toggleSelectAll()
       }
+
+      // Arrow-key cell navigation (only when not editing or searching)
+      if (!editingCell && !searchOpen && focusedCell !== null) {
+        const ARROWS = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight']
+        if (ARROWS.includes(e.key)) {
+          e.preventDefault()
+          let { rowIdx, colIdx } = focusedCell
+          if (e.key === 'ArrowDown')  rowIdx = Math.min(rowIdx + 1, searchedRows.length - 1)
+          if (e.key === 'ArrowUp')    rowIdx = Math.max(rowIdx - 1, 0)
+          if (e.key === 'ArrowRight') colIdx = Math.min(colIdx + 1, visibleCols.length - 1)
+          if (e.key === 'ArrowLeft')  colIdx = Math.max(colIdx - 1, 0)
+          setFocusedCell({ rowIdx, colIdx })
+          // Scroll the target row into the viewport
+          if (scrollRef.current) {
+            const targetTop = rowIdx * ROW_H
+            const { scrollTop, clientHeight } = scrollRef.current
+            if (targetTop < scrollTop)
+              scrollRef.current.scrollTo({ top: targetTop })
+            else if (targetTop + ROW_H > scrollTop + clientHeight)
+              scrollRef.current.scrollTo({ top: targetTop + ROW_H - clientHeight })
+          }
+          return
+        }
+        // Enter / F2 → start editing focused cell
+        if (e.key === 'Enter' || e.key === 'F2') {
+          e.preventDefault()
+          const row = searchedRows[focusedCell.rowIdx]
+          const col = visibleCols[focusedCell.colIdx]
+          if (row && col && !ds.computedCols?.[col]) {
+            setEditingCell({ dsRowIdx: ds.rows.indexOf(row), col })
+          }
+          return
+        }
+        // Delete / Backspace → clear focused cell value
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault()
+          const row = searchedRows[focusedCell.rowIdx]
+          const col = visibleCols[focusedCell.colIdx]
+          if (row && col && !ds.computedCols?.[col]) {
+            dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
+            dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows: ds.rows.map((r, i) => i === ds.rows.indexOf(row) ? { ...r, [col]: '' } : r) } })
+          }
+          return
+        }
+      }
+
       if (e.key === 'Escape' && !searchOpen) {
         if (editingCell) setEditingCell(null)
+        else if (focusedCell) setFocusedCell(null)
         else if (selectedRows.size > 0) { setSelectedRows(new Set()); setLastClickedRow(null) }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [addRow, editingCell, searchOpen, ds.id, dispatch, toggleSelectAll, selectedRows])
+  }, [addRow, editingCell, focusedCell, searchOpen, ds.id, ds.rows, ds.computedCols, dispatch, toggleSelectAll, selectedRows, searchedRows, visibleCols])
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const activeQuery = searchQuery.trim()
@@ -982,6 +1041,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     const nm           = numMax[col]
                     const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
                     const isEditCell   = !isComputed && isEditRow && editingCell?.col === col
+                    const isFocused    = !isEditCell && focusedCell?.rowIdx === i && focusedCell?.colIdx === colVisIdx
                     const activeMatch  = matches[matchIdx]
                     const isActiveMth  = activeMatch?.dsRowIdx === dsRowIdx && activeMatch?.col === col
                     const isAnyMth     = !isActiveMth && matchSet.has(`${dsRowIdx}:${col}`)
@@ -993,8 +1053,9 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     return (
                       <td
                         key={col}
-                        className={[s.td, isEditCell ? s.tdEditing : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : '', isPinnedCol ? s.pinnedTd : '', isLastPin ? s.pinnedLast : ''].filter(Boolean).join(' ')}
+                        className={[s.td, isEditCell ? s.tdEditing : '', isFocused ? s.tdFocused : '', isActiveMth ? s.matchActive : isAnyMth ? s.matchHighlight : '', isPinnedCol ? s.pinnedTd : '', isLastPin ? s.pinnedLast : ''].filter(Boolean).join(' ')}
                         style={tdStyle}
+                        onClick={!isComputed && !editingCell ? () => setFocusedCell({ rowIdx: i, colIdx: colVisIdx }) : undefined}
                         onDoubleClick={!isComputed ? () => !searchOpen && setEditingCell({ dsRowIdx, col }) : undefined}
                       >
                         {isEditCell ? (

@@ -5,7 +5,7 @@ import { makeDS, genHousing, genWorld, genSales, genStocks, uid } from '../lib/d
 const init = {
   tabs:       [],        // dataset objects
   workspaces: [],        // { id, name }[]
-  rowHistory: {},        // { [dsId]: rows[][] } — undo stack, max 50 per dataset
+  actionHistory: {},     // { [dsId]: { rows?, ...colState }[] } — unified undo stack, max 50
   activeId:   null,      // active tab id
   view:       'table',   // 'table' | 'graph' | 'sql'
   panelOpen:  false,
@@ -134,22 +134,23 @@ function reducer (state, action) {
     case 'RESTORE_WORKSPACES':
       return { ...state, workspaces: action.workspaces }
 
-    case 'PUSH_ROW_HISTORY': {
-      const prev   = state.rowHistory[action.dsId] || []
+    // data is a plain object (e.g. { rows } or { cols, pinnedCols, … })
+    case 'PUSH_ACTION': {
+      const prev   = state.actionHistory[action.dsId] || []
       const capped = prev.length >= 50 ? prev.slice(1) : prev
       return {
         ...state,
-        rowHistory: { ...state.rowHistory, [action.dsId]: [...capped, action.rows] },
+        actionHistory: { ...state.actionHistory, [action.dsId]: [...capped, action.data] },
       }
     }
 
-    case 'UNDO_ROWS': {
-      const stack = state.rowHistory[action.dsId] || []
+    case 'UNDO_ACTION': {
+      const stack = state.actionHistory[action.dsId] || []
       if (!stack.length) return state
       return {
         ...state,
-        tabs:       state.tabs.map(t => t.id === action.dsId ? { ...t, rows: stack[stack.length - 1] } : t),
-        rowHistory: { ...state.rowHistory, [action.dsId]: stack.slice(0, -1) },
+        tabs:          state.tabs.map(t => t.id === action.dsId ? { ...t, ...stack[stack.length - 1] } : t),
+        actionHistory: { ...state.actionHistory, [action.dsId]: stack.slice(0, -1) },
       }
     }
 

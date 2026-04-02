@@ -251,6 +251,8 @@
 
 .statCard { border: 1px solid var(--bd1); border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
 .statHd   { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg3); }
+.statComplete    { height: 2px; background: var(--bg5); }
+.statCompleteBar { height: 100%; border-radius: 0 1px 1px 0; transition: width .3s ease; }
 .statName { flex: 1; font-size: 12px; font-weight: 500; color: var(--tx1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .statMeta { font-size: 10px; color: var(--tx3); font-family: var(--m); flex-shrink: 0; }
 .statMissing { font-size: 9.5px; color: #fda4af; font-family: var(--m); flex-shrink: 0; }

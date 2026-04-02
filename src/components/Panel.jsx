@@ -654,7 +654,7 @@ function FiltersTab ({ ds, onFilterAdd, onFilterRemove, onFilterClear, onSaveFil
 }
 
 // ─── Stats sub-components ─────────────────────────────────────────────────────
-function NumericStats ({ vals }) {
+function NumericStats ({ vals, pal }) {
   const nums = vals.map(parseNumeric).filter(n => !isNaN(n))
   if (!nums.length) return null
   const sorted = [...nums].sort((a, b) => a - b)
@@ -665,21 +665,40 @@ function NumericStats ({ vals }) {
   const median = sorted[Math.floor(n * 0.5)]
   const q3     = sorted[Math.floor(n * 0.75)]
   const std    = Math.sqrt(nums.reduce((a, b) => a + (b - mean) ** 2, 0) / n)
-  const stats  = [
-    ['Min', Math.min(...nums)], ['Max', Math.max(...nums)],
-    ['Mean', mean],             ['Median', median],
-    ['Q1', q1],                 ['Q3', q3],
-    ['Sum', sum],               ['Std', std],
+  const mn = sorted[0], mx = sorted[n - 1]
+
+  // Mini distribution histogram
+  const B  = 16
+  const bw = (mx - mn) / B || 1
+  const cnts = Array(B).fill(0)
+  nums.forEach(v => { const i = Math.min(Math.floor((v - mn) / bw), B - 1); cnts[i]++ })
+  const mc = Math.max(...cnts) || 1
+
+  const stats = [
+    ['Min',    mn],    ['Max',  mx],
+    ['Mean',   mean],  ['Median', median],
+    ['Q1',     q1],    ['Q3',   q3],
+    ['Std dev', std],  ['Sum',  sum],
   ]
   return (
-    <div className={s.stGrid}>
-      {stats.map(([l, v]) => (
-        <div key={l} className={s.stCell}>
-          <div className={s.stLbl}>{l}</div>
-          <div className={s.stVal}>{fmtN(v)}</div>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className={s.miniHist} style={{ marginBottom: 8 }}>
+        {cnts.map((c, i) => (
+          <div key={i} className={s.miniBar}
+            style={{ height: Math.max(2, c / mc * 28), background: pal?.[i % (pal?.length || 1)] || 'var(--ac)' }}
+            title={`${fmtN(mn + i * bw)}–${fmtN(mn + (i+1) * bw)}: ${c}`}
+          />
+        ))}
+      </div>
+      <div className={s.stGrid}>
+        {stats.map(([l, v]) => (
+          <div key={l} className={s.stCell}>
+            <div className={s.stLbl}>{l}</div>
+            <div className={s.stVal}>{fmtN(v)}</div>
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -764,10 +783,11 @@ function DateStats ({ vals }) {
   )
 }
 
-function StatCard ({ col, ds }) {
+function StatCard ({ col, ds, pal }) {
   const allVals    = ds.rows.map(r => r[col])
   const nonNull    = allVals.filter(v => v !== undefined && v !== null && v !== '')
   const missingCnt = allVals.length - nonNull.length
+  const fillPct    = allVals.length ? (nonNull.length / allVals.length) * 100 : 100
   const colType    = detectColType(ds, col)
   const meta       = COL_TYPES[colType] || COL_TYPES.text
   return (
@@ -776,11 +796,15 @@ function StatCard ({ col, ds }) {
         <span className={s.typeBadge} style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
         <span className={s.statName}>{col}</span>
         <span className={s.statMeta}>{nonNull.length.toLocaleString()}</span>
-        {missingCnt > 0 && <span className={s.statMissing}>{missingCnt} missing</span>}
+        {missingCnt > 0 && <span className={s.statMissing}>{missingCnt} null</span>}
+      </div>
+      {/* Completeness bar */}
+      <div className={s.statComplete}>
+        <div className={s.statCompleteBar} style={{ width: `${fillPct}%`, background: missingCnt > 0 ? '#f59e0b' : 'var(--ac)' }} />
       </div>
       {nonNull.length > 0 && (
         <div className={s.statBody}>
-          {colType === 'numeric' && <NumericStats vals={nonNull} />}
+          {colType === 'numeric' && <NumericStats vals={nonNull} pal={pal} />}
           {colType === 'boolean' && <BoolStats vals={nonNull} total={nonNull.length} />}
           {colType === 'date'    && <DateStats vals={nonNull} />}
           {(colType === 'text' || colType === 'category') && <CatStats vals={nonNull} total={allVals.length} />}
@@ -791,7 +815,7 @@ function StatCard ({ col, ds }) {
 }
 
 // ─── Stats tab ────────────────────────────────────────────────────────────────
-function StatsTab ({ ds }) {
+function StatsTab ({ ds, pal }) {
   const missingCells = ds.rows.reduce((sum, row) =>
     sum + ds.cols.filter(c => row[c] === undefined || row[c] === null || row[c] === '').length
   , 0)
@@ -816,7 +840,7 @@ function StatsTab ({ ds }) {
       <div className={s.sep} />
       <div className={s.sec} style={{ paddingBottom: 14 }}>
         <div className={s.lbl}>Column statistics</div>
-        {ds.cols.map(col => <StatCard key={col} col={col} ds={ds} />)}
+        {ds.cols.map(col => <StatCard key={col} col={col} ds={ds} pal={pal} />)}
       </div>
     </div>
   )
@@ -1072,7 +1096,7 @@ export default function Panel ({ ds, onFilterAdd, onFilterRemove, onFilterClear,
         {state.panelTab === 'filters' && (
           <FiltersTab ds={ds} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} onFilterClear={onFilterClear} onSaveFilterSet={onSaveFilterSet} onLoadFilterSet={onLoadFilterSet} onDeleteFilterSet={onDeleteFilterSet} />
         )}
-        {state.panelTab === 'stats' && <StatsTab ds={ds} />}
+        {state.panelTab === 'stats' && <StatsTab ds={ds} pal={PALETTES[state.palette]} />}
         {state.panelTab === 'graph' && <GraphTab ds={ds} onApplySuggestion={applySuggestion} />}
         {state.panelTab === 'saved' && <SavedTab ds={ds} onLoad={onLoadGraph} onDelete={onDeleteGraph} />}
       </div>
