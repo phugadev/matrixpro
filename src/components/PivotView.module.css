@@ -1,0 +1,337 @@
+/* ─── Root layout ─────────────────────────────────────────────────────────── */
+.root {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─── Config panel ────────────────────────────────────────────────────────── */
+.config {
+  width: 220px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--bd1);
+  background: var(--bg1);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.config::-webkit-scrollbar { width: 3px; }
+.config::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+.section {
+  padding: 0 14px 14px;
+  border-bottom: 1px solid var(--bd1);
+}
+
+.sectionHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0 8px;
+}
+
+.sectionLabel {
+  font: 600 10px/1 var(--f);
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--tx3);
+}
+
+/* ─── Add button + dropdown ───────────────────────────────────────────────── */
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg4);
+  border: 1px solid var(--bd2);
+  border-radius: 5px;
+  color: var(--tx2);
+  font: 500 11px/1 var(--f);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+.addBtn:hover:not(:disabled) { color: var(--tx1); border-color: var(--bd3); }
+.addBtn:disabled { opacity: .35; cursor: not-allowed; }
+
+.addDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg3);
+  border: 1px solid var(--bd2);
+  border-radius: 9px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.5);
+  z-index: 50;
+  padding: 4px 0;
+  animation: popIn .1s ease;
+}
+.addDropdown::-webkit-scrollbar { width: 3px; }
+.addDropdown::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+@keyframes popIn { from { opacity: 0; transform: scale(.94) } to { opacity: 1; transform: scale(1) } }
+
+.addDropItem {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  color: var(--tx2);
+  font: 12px/1 var(--f);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--ease);
+}
+.addDropItem:hover { background: var(--bg4); color: var(--tx1); }
+.addDropEmpty { padding: 10px 12px; font-size: 11px; color: var(--tx3); }
+
+/* ─── Field chips ─────────────────────────────────────────────────────────── */
+.chipList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  background: var(--bg4);
+  border: 1px solid var(--bd2);
+  border-radius: 6px;
+}
+
+.chipLabel {
+  flex: 1;
+  font-size: 12px;
+  color: var(--tx1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipRemove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  color: var(--tx3);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color var(--ease), background var(--ease);
+}
+.chipRemove:hover { color: var(--tx1); background: var(--bg5); }
+
+.fnSelect {
+  flex-shrink: 0;
+  background: var(--bg5);
+  border: 1px solid var(--bd2);
+  border-radius: 4px;
+  color: var(--tx2);
+  font: 11px/1 var(--f);
+  padding: 2px 4px;
+  cursor: pointer;
+  outline: none;
+}
+.fnSelect:focus { border-color: var(--ac); }
+
+/* ─── Column field select ─────────────────────────────────────────────────── */
+.colSelect {
+  width: 100%;
+  background: var(--bg4);
+  border: 1px solid var(--bd2);
+  border-radius: 6px;
+  color: var(--tx1);
+  font: 12px/1 var(--f);
+  padding: 6px 9px;
+  cursor: pointer;
+  outline: none;
+}
+.colSelect:focus { border-color: var(--ac); }
+
+.colHint {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--tx3);
+  line-height: 1.4;
+}
+
+.capWarn { color: var(--amber); }
+
+.emptyHint {
+  font-size: 11px;
+  color: var(--tx3);
+  line-height: 1.45;
+}
+
+/* ─── Config footer ───────────────────────────────────────────────────────── */
+.configSpacer { flex: 1; min-height: 16px; }
+
+.stats {
+  padding: 0 14px 8px;
+  font: 11px/1 var(--m);
+  color: var(--tx3);
+}
+
+.openBtn {
+  margin: 0 14px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--ac-lo);
+  border: 1px solid var(--ac);
+  border-radius: var(--r);
+  color: var(--ac2);
+  font: 500 12px/1 var(--f);
+  cursor: pointer;
+  transition: all var(--ease);
+  flex-shrink: 0;
+}
+.openBtn:hover:not(:disabled) { background: var(--ac); color: #fff; }
+.openBtn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ─── Grid area ───────────────────────────────────────────────────────────── */
+.gridWrap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2);
+}
+
+.tableWrap {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+.tableWrap::-webkit-scrollbar { width: 6px; height: 6px; }
+.tableWrap::-webkit-scrollbar-track { background: transparent; }
+.tableWrap::-webkit-scrollbar-thumb { background: var(--bd3); border-radius: 3px; }
+.tableWrap::-webkit-scrollbar-corner { background: transparent; }
+
+/* ─── Pivot table ─────────────────────────────────────────────────────────── */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+  border: 1px solid var(--bd2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.th {
+  padding: 7px 14px;
+  text-align: left;
+  font: 600 11px/1 var(--f);
+  color: var(--tx2);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--bd2);
+  user-select: none;
+}
+
+/* Sticky row-field header cells */
+.thRow {
+  position: sticky;
+  z-index: 3;
+  border-right: 1px solid var(--bd2);
+}
+
+/* Value group spans (colField cross-tab header) */
+.thGroup {
+  text-align: center;
+  border-left: 1px solid var(--bd2);
+  border-bottom: 1px solid var(--bd2);
+}
+
+/* Individual value column headers */
+.thVal {
+  text-align: right;
+  border-left: 1px solid var(--bd1);
+}
+
+.fnBadge {
+  font-size: 9px;
+  color: var(--tx3);
+  font-weight: 500;
+  margin-left: 3px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+/* ─── Body rows ───────────────────────────────────────────────────────────── */
+.tr:hover .td { background: var(--bg4); }
+.tr:hover .tdRow { background: var(--bg4); }
+
+.td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--bd1);
+  color: var(--tx1);
+  vertical-align: middle;
+  background: var(--bg2);
+}
+
+/* Sticky row-dimension cells */
+.tdRow {
+  position: sticky;
+  z-index: 1;
+  background: var(--bg2);
+  border-right: 1px solid var(--bd2);
+  font-weight: 500;
+}
+
+/* Numeric value cells */
+.tdVal {
+  text-align: right;
+  font-family: var(--m);
+  font-size: 12px;
+  border-left: 1px solid var(--bd1);
+  color: var(--tx2);
+}
+
+/* Grand total row */
+.totalRow .td {
+  background: var(--bg3);
+  border-top: 1px solid var(--bd2);
+  border-bottom: none;
+  font-weight: 600;
+  color: var(--tx1);
+}
+.totalRow .tdRow {
+  background: var(--bg3);
+  color: var(--ac2);
+}
+.totalRow .tdVal {
+  color: var(--tx1);
+}
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--tx3);
+  padding: 40px;
+}
+.emptyIcon { opacity: .35; }
+.emptyTitle { font-size: 14px; font-weight: 600; color: var(--tx2); }
+.emptySub   { font-size: 12px; color: var(--tx3); }

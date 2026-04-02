@@ -22,6 +22,9 @@ const init = {
   showGrid:   true,
   smoothCurves: true,
   aggFn:      'sum',
+  pivotRowFields:   [],
+  pivotColField:    '',
+  pivotValueFields: [],
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -89,6 +92,9 @@ function reducer (state, action) {
         activeId: action.id,
         view: 'table',
         tabs: state.tabs.map(t => t.id === action.id ? { ...t, open: true } : t),
+        pivotRowFields:   [],
+        pivotColField:    '',
+        pivotValueFields: [],
       }
 
     case 'UPDATE_DS': {
@@ -122,6 +128,9 @@ function reducer (state, action) {
 
     case 'SET_AGG':
       return { ...state, aggFn: action.fn }
+
+    case 'SET_PIVOT':
+      return { ...state, pivotRowFields: action.rowFields, pivotColField: action.colField, pivotValueFields: action.valueFields }
 
     case 'RESTORE_TABS': {
       const openTab = [...action.tabs].reverse().find(t => t.open !== false)

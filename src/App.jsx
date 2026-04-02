@@ -6,6 +6,7 @@ import Titlebar   from './components/Titlebar'
 import Toolbar    from './components/Toolbar'
 import DataTable  from './components/DataTable'
 import ChartView  from './components/ChartView'
+import PivotView  from './components/PivotView'
 import { lazy, Suspense } from 'react'
 const SqlEditor = lazy(() => import('./components/SqlEditor'))
 import Panel      from './components/Panel'
@@ -219,6 +220,7 @@ function Inner () {
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'table' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'graph' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'sql' }) }
+      if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'pivot' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); dispatch({ type: 'TOGGLE_PANEL' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === 's' && state.view === 'graph') { e.preventDefault(); openSaveModal() }
       if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); doExportCSV() }
@@ -676,6 +678,17 @@ function Inner () {
     toast(`Deleted "${formulaCol}"`)
   }, [ds, formulaCol, updateDS, toast])
 
+  // ── Open pivot result as a new dataset ──────────────────────────────────────
+  const openPivotAsDataset = useCallback((rows) => {
+    if (!ds || !rows.length) return
+    const name = `${ds.name} (Pivot)`
+    const newDs = makeDS(name, rows, state.tabs.length)
+    addTab(newDs)
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
+    dispatch({ type: 'SET_VIEW', view: 'table' })
+    toast(`Opened as "${name}"`, '✓')
+  }, [ds, state.tabs.length, addTab, dispatch, toast])
+
   // ── Create blank dataset from scratch ───────────────────────────────────────
   // cols is [{ name: string, type: string }]
   const createScratch = useCallback((name, cols) => {
@@ -717,6 +730,7 @@ function Inner () {
             <div className={s.content}>
               <div className={s.center}>
                 {state.view === 'table' && <DataTable ds={ds} onAddComputedCol={openAddComputedCol} onEditComputedCol={openEditComputedCol} />}
+                {state.view === 'pivot' && <PivotView ds={ds} onOpenAsDataset={openPivotAsDataset} />}
                 {state.view === 'graph' && (
                   <ChartView
                     ds={ds}
@@ -733,7 +747,7 @@ function Inner () {
                   </SqlBoundary>
                 )}
               </div>
-              {state.view !== 'sql' && (
+              {state.view !== 'sql' && state.view !== 'pivot' && (
                 <Panel
                   ds={ds}
                   onFilterAdd={addFilter}

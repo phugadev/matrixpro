@@ -96,6 +96,15 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - Export any chart as PNG
 - Save and reload named graph configurations per dataset
 
+### Pivot Table (⌘4)
+- Drag-free axis configuration — click **+ Add** to assign columns to **Rows**, **Columns**, and **Values** wells
+- **Columns** axis cross-tabulates by unique values of the selected field (e.g. one column per Quarter), capped at 50 distinct values
+- **Values** support 5 aggregation functions: Sum · Avg · Count · Min · Max — switchable per field via inline selector
+- Two-level header when a Column axis is active — top row groups value columns by source field, second row shows the pivot values
+- **Grand Total** row always visible at the bottom
+- **Open as Dataset** — materialises the pivot result as a new tab for further analysis, export, or charting
+- Pivot config persists when switching between views; resets automatically when switching datasets
+
 ### SQL Editor (⌘3)
 - Full in-browser SQL powered by sql.js (WebAssembly)
 - Every open dataset is automatically loaded as a queryable table
@@ -121,6 +130,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 | ⌘1       | Table view                                |
 | ⌘2       | Graph view                                |
 | ⌘3       | SQL Editor                                |
+| ⌘4       | Pivot table view                          |
 | ⌘\\      | Toggle filter panel                       |
 | ⌘F       | Find in table                             |
 | ⌘H       | Find & Replace                            |

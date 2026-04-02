@@ -175,6 +175,7 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
   const isGraph = state.view === 'graph'
   const isSql   = state.view === 'sql'
   const isTable = state.view === 'table'
+  const isPivot = state.view === 'pivot'
 
   const [colMenuOpen,     setColMenuOpen]     = useState(false)
   const [exportMenuOpen,  setExportMenuOpen]  = useState(false)
@@ -330,6 +331,17 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
           </svg>
           SQL
         </button>
+        <button
+          className={[s.vbtn, isPivot && s.active].filter(Boolean).join(' ')}
+          onClick={() => dispatch({ type: 'SET_VIEW', view: 'pivot' })}
+          title="Pivot table (⌘4)"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="1" y="1" width="14" height="14" rx="2"/>
+            <path d="M1 6h14M6 1v14"/>
+          </svg>
+          Pivot
+        </button>
       </div>
 
       <div className={s.sp} />
@@ -337,7 +349,7 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
       {/* ── Zone 3: Contextual actions ── */}
 
       {/* Group */}
-      {!isSql && (
+      {!isSql && !isPivot && (
         <button className={s.btn} onClick={onGroup} title="Group & aggregate">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="1" y="1" width="6" height="6" rx="1.5" /><rect x="9" y="1" width="6" height="6" rx="1.5" />
@@ -348,7 +360,7 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
       )}
 
       {/* Join — only when other datasets are open */}
-      {!isSql && state.tabs.filter(t => t.open && t.id !== ds.id).length > 0 && (
+      {!isSql && !isPivot && state.tabs.filter(t => t.open && t.id !== ds.id).length > 0 && (
         <button className={s.btn} onClick={onJoin} title="Join with another dataset">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="5"  cy="8" r="4" />
@@ -382,7 +394,7 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
       )}
 
       {/* Filters toggle */}
-      {!isSql && (
+      {!isSql && !isPivot && (
         <button
           className={[s.btn, state.panelOpen && s.btnOn].filter(Boolean).join(' ')}
           onClick={() => dispatch({ type: 'TOGGLE_PANEL' })}
