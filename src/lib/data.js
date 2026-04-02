@@ -51,6 +51,24 @@ export function parseNumeric (v) {
   return Number(s)
 }
 
+// ─── Formula evaluation for computed columns ──────────────────────────────────
+// Column names are sanitized to valid JS identifiers (spaces → underscores).
+// So "Avg income" → "Avg_income" in formulas.
+export function evalFormula (formula, row) {
+  try {
+    const entries  = Object.entries(row)
+    const safeKeys = entries.map(([k]) => k.replace(/[^a-zA-Z0-9_$]/g, '_'))
+    const vals     = entries.map(([, v]) => {
+      if (v === '' || v == null) return ''
+      const n = parseNumeric(v)
+      return isNaN(n) ? String(v) : n
+    })
+    const result = new Function(...safeKeys, `"use strict"; return (${formula})`)(...vals)
+    if (result == null || (typeof result === 'number' && isNaN(result))) return ''
+    return result
+  } catch { return '' }
+}
+
 // ─── Column type detection ───────────────────────────────────────────────────
 export function isNumericCol (ds, col) {
   const sample = ds.rows.slice(0, 20).filter(r => r[col] !== '' && r[col] != null)
@@ -113,18 +131,67 @@ export function fmtDate (v) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// ─── Reconstruct a filter predicate from a serialisable spec ─────────────────
+export function specToFn (col, spec) {
+  if (!spec) return () => true
+  if (spec.type === 'text') {
+    const { mode = 'contains', q = '', caseSensitive: cs = false } = spec
+    if (mode === 'regex') {
+      try { const re = new RegExp(q, cs ? '' : 'i'); return r => re.test(String(r[col] ?? '')) }
+      catch { return () => false }
+    }
+    const needle = cs ? q : q.toLowerCase()
+    const xf     = v => cs ? String(v ?? '') : String(v ?? '').toLowerCase()
+    if (mode === 'starts') return r => xf(r[col]).startsWith(needle)
+    if (mode === 'ends')   return r => xf(r[col]).endsWith(needle)
+    return r => xf(r[col]).includes(needle)
+  }
+  if (spec.type === 'numeric') {
+    const loN = spec.lo !== '' && spec.lo != null ? +spec.lo : null
+    const hiN = spec.hi !== '' && spec.hi != null ? +spec.hi : null
+    return r => { const n = parseNumeric(r[col]); return !isNaN(n) && (loN === null || n >= loN) && (hiN === null || n <= hiN) }
+  }
+  if (spec.type === 'cat') {
+    const sel = new Set(spec.selected || [])
+    return r => sel.has(r[col])
+  }
+  if (spec.type === 'date') {
+    const sy = new Set(spec.selYears || [])
+    const sm = new Set(spec.selMonths || [])
+    const fromD = spec.fromStr ? parseDate(spec.fromStr) : null
+    const toD   = spec.toStr   ? parseDate(spec.toStr)   : null
+    const hasFrom = fromD && !isNaN(fromD.getTime())
+    const hasTo   = toD   && !isNaN(toD.getTime())
+    return r => {
+      const d = parseDate(r[col])
+      if (isNaN(d.getTime())) return false
+      if (sy.size > 0 && !sy.has(d.getFullYear())) return false
+      if (sm.size > 0 && !sm.has(d.getMonth()))    return false
+      if (hasFrom && d < fromD) return false
+      if (hasTo   && d > toD)   return false
+      return true
+    }
+  }
+  if (spec.type === 'boolean') {
+    return r => String(r[col]).trim() === String(spec.sel).trim()
+  }
+  return () => true
+}
+
 // ─── Make dataset object ─────────────────────────────────────────────────────
 export function makeDS (name, rows, existingTabCount = 0) {
   const cols = rows.length ? Object.keys(rows[0]) : []
   return {
-    id:           uid(),
+    id:              uid(),
     name,
     rows,
     cols,
-    filters:      {},
-    filterLabels: {},
-    savedGraphs:  [],
-    color:        PALETTES[0][existingTabCount % PALETTES[0].length],
+    filters:         {},
+    filterLabels:    {},
+    filterSpecs:     {},
+    savedFilterSets: [],
+    savedGraphs:     [],
+    color:           PALETTES[0][existingTabCount % PALETTES[0].length],
   }
 }
 

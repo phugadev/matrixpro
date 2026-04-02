@@ -13,7 +13,7 @@ import Welcome    from './components/Welcome'
 import Modal      from './components/Modal'
 import NewDatasetModal from './components/NewDatasetModal'
 import s          from './App.module.css'
-import { makeDS, isNumericCol, evalFormula } from './lib/data'
+import { makeDS, isNumericCol, evalFormula, specToFn, uid } from './lib/data'
 import Papa from 'papaparse'
 
 const isElectron = !!window.MP
@@ -71,6 +71,10 @@ function Inner () {
   const [groupBy,     setGroupBy]     = useState('')
   const [groupFn,     setGroupFn]     = useState('sum')
   const [graphName,   setGraphName]   = useState('Untitled graph')
+  const [joinModal,   setJoinModal]   = useState(false)
+  const [joinRightId, setJoinRightId] = useState('')
+  const [joinKeyCol,  setJoinKeyCol]  = useState('')
+  const [joinType,    setJoinType]    = useState('inner')
   const [dropping,    setDropping]    = useState(false)
   const dropCount    = useRef(0)
   const fileInputRef = useRef(null)
@@ -471,27 +475,146 @@ function Inner () {
   }, [ds, groupBy, groupFn, state.tabs.length, addTab, toast])
 
   // ── Filter helpers ──────────────────────────────────────────────────────────
-  const addFilter = useCallback((col, filterFn, label) => {
+  const addFilter = useCallback((col, filterFn, label, spec = null) => {
     if (!ds) return
     const newFilters = { ...ds.filters, [col]: filterFn }
     const newLabels  = { ...(ds.filterLabels || {}), [col]: label }
-    updateDS(ds.id, { filters: newFilters, filterLabels: newLabels })
+    const newSpecs   = { ...(ds.filterSpecs  || {}), [col]: spec }
+    updateDS(ds.id, { filters: newFilters, filterLabels: newLabels, filterSpecs: newSpecs })
     toast(`Filter: ${col} ${label}`, '⚡')
   }, [ds, updateDS, toast])
 
   const removeFilter = useCallback((col) => {
     if (!ds) return
-    const { [col]: _, ...rest }  = ds.filters
-    const { [col]: __, ...rest2 } = ds.filterLabels || {}
-    updateDS(ds.id, { filters: rest, filterLabels: rest2 })
+    const { [col]: _,   ...rest  } = ds.filters
+    const { [col]: __,  ...rest2 } = ds.filterLabels || {}
+    const { [col]: ___, ...rest3 } = ds.filterSpecs  || {}
+    updateDS(ds.id, { filters: rest, filterLabels: rest2, filterSpecs: rest3 })
     toast(`Removed filter on "${col}"`)
   }, [ds, updateDS, toast])
 
   const clearAllFilters = useCallback(() => {
     if (!ds) return
-    updateDS(ds.id, { filters: {}, filterLabels: {} })
+    updateDS(ds.id, { filters: {}, filterLabels: {}, filterSpecs: {} })
     toast('All filters cleared')
   }, [ds, updateDS, toast])
+
+  const saveCurrentFilters = useCallback((name) => {
+    if (!ds) return
+    const newSet = {
+      id:           uid(),
+      name,
+      specs:        { ...(ds.filterSpecs  || {}) },
+      filterLabels: { ...(ds.filterLabels || {}) },
+    }
+    updateDS(ds.id, { savedFilterSets: [...(ds.savedFilterSets || []), newSet] })
+    toast(`Saved filter set "${name}"`, '✓')
+  }, [ds, updateDS, toast])
+
+  const loadFilterSet = useCallback((filterSet) => {
+    if (!ds) return
+    const newFilters = {}
+    const newLabels  = {}
+    const newSpecs   = {}
+    Object.entries(filterSet.specs || {}).forEach(([col, spec]) => {
+      if (!spec || !ds.cols.includes(col)) return
+      try {
+        newFilters[col] = specToFn(col, spec)
+        newLabels[col]  = filterSet.filterLabels?.[col] || col
+        newSpecs[col]   = spec
+      } catch {}
+    })
+    updateDS(ds.id, { filters: newFilters, filterLabels: newLabels, filterSpecs: newSpecs })
+    toast(`Loaded "${filterSet.name}"`, '⚡')
+  }, [ds, updateDS, toast])
+
+  const deleteFilterSet = useCallback((id) => {
+    if (!ds) return
+    updateDS(ds.id, { savedFilterSets: (ds.savedFilterSets || []).filter(s => s.id !== id) })
+  }, [ds, updateDS])
+
+  // ── Cross-dataset join ────────────────────────────────────────────────────────
+  const openJoinModal = useCallback(() => {
+    setJoinRightId(''); setJoinKeyCol(''); setJoinType('inner')
+    setJoinModal(true)
+  }, [])
+
+  const doJoin = useCallback(() => {
+    if (!ds || !joinRightId || !joinKeyCol) return
+    const right = state.tabs.find(t => t.id === joinRightId)
+    if (!right) return
+
+    // right columns, renaming any that clash with left (except the key)
+    const rightOnlyCols = right.cols.filter(c => c !== joinKeyCol)
+    const rightColNames = rightOnlyCols.map(c => ds.cols.includes(c) ? `${right.name}.${c}` : c)
+
+    // build right-side index
+    const rightIdx = new Map()
+    right.rows.forEach(r => {
+      const k = String(r[joinKeyCol] ?? '')
+      if (!rightIdx.has(k)) rightIdx.set(k, [])
+      rightIdx.get(k).push(r)
+    })
+
+    let newRows = []
+
+    if (joinType === 'inner' || joinType === 'left') {
+      ds.rows.forEach(lRow => {
+        const k = String(lRow[joinKeyCol] ?? '')
+        const matches = rightIdx.get(k) || []
+        if (matches.length) {
+          matches.forEach(rRow => {
+            const merged = { ...lRow }
+            rightOnlyCols.forEach((rc, i) => { merged[rightColNames[i]] = rRow[rc] })
+            newRows.push(merged)
+          })
+        } else if (joinType === 'left') {
+          const merged = { ...lRow }
+          rightColNames.forEach(rc => { merged[rc] = null })
+          newRows.push(merged)
+        }
+      })
+    } else {
+      // right join — build left index
+      const leftIdx = new Map()
+      ds.rows.forEach(r => {
+        const k = String(r[joinKeyCol] ?? '')
+        if (!leftIdx.has(k)) leftIdx.set(k, [])
+        leftIdx.get(k).push(r)
+      })
+      right.rows.forEach(rRow => {
+        const k = String(rRow[joinKeyCol] ?? '')
+        const matches = leftIdx.get(k) || []
+        if (matches.length) {
+          matches.forEach(lRow => {
+            const merged = { ...lRow }
+            rightOnlyCols.forEach((rc, i) => { merged[rightColNames[i]] = rRow[rc] })
+            newRows.push(merged)
+          })
+        } else {
+          const merged = { [joinKeyCol]: rRow[joinKeyCol] }
+          ds.cols.filter(c => c !== joinKeyCol).forEach(c => { merged[c] = null })
+          rightOnlyCols.forEach((rc, i) => { merged[rightColNames[i]] = rRow[rc] })
+          newRows.push(merged)
+        }
+      })
+    }
+
+    const allCols = [...ds.cols, ...rightColNames]
+    const name    = `${ds.name} ⋈ ${right.name}`
+    const resultDs = makeDS(name, newRows, state.tabs.length)
+    resultDs.cols  = allCols
+    // fix rows to have all cols
+    resultDs.rows  = newRows.map(r => {
+      const out = {}
+      allCols.forEach(c => { out[c] = c in r ? r[c] : null })
+      return out
+    })
+    addTab(resultDs)
+    if (isElectron) window.MP.db.upsertDataset({ id: resultDs.id, name: resultDs.name, color: resultDs.color, cols: resultDs.cols, rows: resultDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
+    toast(`Joined — ${newRows.length} rows`, '⋈')
+    setJoinModal(false)
+  }, [ds, state.tabs, joinRightId, joinKeyCol, joinType, addTab, toast])
 
   // ── Computed columns ─────────────────────────────────────────────────────────
   const openAddComputedCol = useCallback(() => {
@@ -583,6 +706,7 @@ function Inner () {
               onExportCSV={doExportCSV}
               onExportJSON={doExportJSON}
               onGroup={openGroupModal}
+              onJoin={openJoinModal}
               onClearFilters={clearAllFilters}
               onAddComputedCol={openAddComputedCol}
             />
@@ -612,6 +736,9 @@ function Inner () {
                   onFilterAdd={addFilter}
                   onFilterRemove={removeFilter}
                   onFilterClear={clearAllFilters}
+                  onSaveFilterSet={saveCurrentFilters}
+                  onLoadFilterSet={loadFilterSet}
+                  onDeleteFilterSet={deleteFilterSet}
                   onLoadGraph={loadGraph}
                   onDeleteGraph={deleteGraph}
                 />
@@ -774,6 +901,79 @@ function Inner () {
           )}
         </Modal>
       )}
+
+      {/* Join datasets modal */}
+      {joinModal && ds && (() => {
+        const otherDs   = state.tabs.filter(t => t.open && t.id !== ds.id)
+        const rightDs   = otherDs.find(t => t.id === joinRightId)
+        const sharedCols = rightDs
+          ? ds.cols.filter(c => rightDs.cols.includes(c))
+          : []
+        const JOIN_TYPES = [
+          { id: 'inner', label: 'Inner', desc: 'Matching rows only' },
+          { id: 'left',  label: 'Left',  desc: 'All left + matching right' },
+          { id: 'right', label: 'Right', desc: 'All right + matching left' },
+        ]
+        return (
+          <Modal
+            title="Join datasets"
+            subtitle="Merge two datasets on a shared key column. Creates a new dataset tab."
+            onClose={() => setJoinModal(false)}
+            onConfirm={doJoin}
+            confirmLabel="Join"
+          >
+            <label className={s.mLabel}>Right dataset</label>
+            <select
+              className={s.mSelect}
+              value={joinRightId}
+              onChange={e => { setJoinRightId(e.target.value); setJoinKeyCol('') }}
+            >
+              <option value="">Select dataset…</option>
+              {otherDs.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+
+            {joinRightId && (
+              <>
+                <label className={s.mLabel}>Key column (shared)</label>
+                {sharedCols.length === 0 ? (
+                  <div style={{ fontSize: 11, color: '#fda4af', marginBottom: 6 }}>
+                    No shared columns between these datasets.
+                  </div>
+                ) : (
+                  <select
+                    className={s.mSelect}
+                    value={joinKeyCol}
+                    onChange={e => setJoinKeyCol(e.target.value)}
+                  >
+                    <option value="">Select key…</option>
+                    {sharedCols.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+              </>
+            )}
+
+            <label className={s.mLabel}>Join type</label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+              {JOIN_TYPES.map(jt => (
+                <button
+                  key={jt.id}
+                  onClick={() => setJoinType(jt.id)}
+                  style={{
+                    flex: 1, padding: '7px 4px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--f)',
+                    background: joinType === jt.id ? 'var(--ac-lo)' : 'var(--bg3)',
+                    border: `1px solid ${joinType === jt.id ? 'var(--ac)' : 'var(--bd2)'}`,
+                    color: joinType === jt.id ? 'var(--ac2)' : 'var(--tx2)',
+                    cursor: 'pointer', textAlign: 'center', lineHeight: 1.4,
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{jt.label}</div>
+                  <div style={{ fontSize: 9.5, opacity: 0.8 }}>{jt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </Modal>
+        )
+      })()}
     </div>
   )
 }

@@ -5,6 +5,8 @@ const path  = require('path')
 const fs    = require('fs')
 const isDev = !app.isPackaged
 
+app.setName('Matrix Pro')
+
 // ─── sql.js ──────────────────────────────────────────────────────────────────
 let db     = null
 let SQL    = null
@@ -29,15 +31,16 @@ async function openDB () {
 
     db.run(`
       CREATE TABLE IF NOT EXISTS datasets (
-        id           TEXT PRIMARY KEY,
-        name         TEXT NOT NULL,
-        color        TEXT NOT NULL,
-        cols         TEXT NOT NULL,
-        data         TEXT NOT NULL,
-        ts           INTEGER NOT NULL,
-        open         INTEGER NOT NULL DEFAULT 1,
-        workspace_id TEXT,
-        pinned_types TEXT
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        color         TEXT NOT NULL,
+        cols          TEXT NOT NULL,
+        data          TEXT NOT NULL,
+        ts            INTEGER NOT NULL,
+        open          INTEGER NOT NULL DEFAULT 1,
+        workspace_id  TEXT,
+        pinned_types  TEXT,
+        computed_cols TEXT
       );
       CREATE TABLE IF NOT EXISTS graphs (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,9 +56,10 @@ async function openDB () {
       );
     `)
     // migrations for older DBs
-    try { db.run('ALTER TABLE datasets ADD COLUMN open         INTEGER DEFAULT 1') } catch {}
-    try { db.run('ALTER TABLE datasets ADD COLUMN workspace_id TEXT') }             catch {}
-    try { db.run('ALTER TABLE datasets ADD COLUMN pinned_types TEXT') }             catch {}
+    try { db.run('ALTER TABLE datasets ADD COLUMN open          INTEGER DEFAULT 1') } catch {}
+    try { db.run('ALTER TABLE datasets ADD COLUMN workspace_id  TEXT') }             catch {}
+    try { db.run('ALTER TABLE datasets ADD COLUMN pinned_types  TEXT') }             catch {}
+    try { db.run('ALTER TABLE datasets ADD COLUMN computed_cols TEXT') }             catch {}
     flush()
   } catch (e) {
     console.warn('[DB] sql.js unavailable:', e.message)
@@ -70,11 +74,11 @@ function flush () {
 }
 
 // ─── IPC handlers ────────────────────────────────────────────────────────────
-ipcMain.handle('db:upsertDataset', (_, { id, name, color, cols, rows, workspaceId = null, pinnedTypes = null }) => {
+ipcMain.handle('db:upsertDataset', (_, { id, name, color, cols, rows, workspaceId = null, pinnedTypes = null, computedCols = null }) => {
   if (!db) return false
   db.run(
-    'INSERT OR REPLACE INTO datasets (id,name,color,cols,data,ts,open,workspace_id,pinned_types) VALUES (?,?,?,?,?,?,?,?,?)',
-    [id, name, color, JSON.stringify(cols), JSON.stringify(rows), Date.now(), 1, workspaceId ?? null, pinnedTypes ? JSON.stringify(pinnedTypes) : null]
+    'INSERT OR REPLACE INTO datasets (id,name,color,cols,data,ts,open,workspace_id,pinned_types,computed_cols) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    [id, name, color, JSON.stringify(cols), JSON.stringify(rows), Date.now(), 1, workspaceId ?? null, pinnedTypes ? JSON.stringify(pinnedTypes) : null, computedCols ? JSON.stringify(computedCols) : null]
   )
   flush()
   return true
@@ -89,11 +93,11 @@ ipcMain.handle('db:setDatasetOpen', (_, { id, open }) => {
 
 ipcMain.handle('db:loadDatasets', () => {
   if (!db) return []
-  const stmt = db.prepare('SELECT id,name,color,cols,data,COALESCE(open,1) as open,workspace_id,pinned_types FROM datasets ORDER BY ts ASC')
+  const stmt = db.prepare('SELECT id,name,color,cols,data,COALESCE(open,1) as open,workspace_id,pinned_types,computed_cols FROM datasets ORDER BY ts ASC')
   const out  = []
   while (stmt.step()) {
     const r = stmt.getAsObject()
-    out.push({ id: r.id, name: r.name, color: r.color, cols: JSON.parse(r.cols), rows: JSON.parse(r.data), open: r.open !== 0, workspaceId: r.workspace_id ?? null, pinnedTypes: r.pinned_types ? JSON.parse(r.pinned_types) : null })
+    out.push({ id: r.id, name: r.name, color: r.color, cols: JSON.parse(r.cols), rows: JSON.parse(r.data), open: r.open !== 0, workspaceId: r.workspace_id ?? null, pinnedTypes: r.pinned_types ? JSON.parse(r.pinned_types) : null, computedCols: r.computed_cols ? JSON.parse(r.computed_cols) : null })
   }
   stmt.free()
   return out

@@ -29,6 +29,7 @@ export const COL_TYPES = {
   boolean:  { label: 'B', color: PALETTES[0][5], bg: hexAlpha(PALETTES[0][5]), title: 'Boolean'  },
   category: { label: 'C', color: PALETTES[0][8], bg: hexAlpha(PALETTES[0][8]), title: 'Category' },
   text:     { label: 'T', color: PALETTES[0][3], bg: hexAlpha(PALETTES[0][3]), title: 'Text'     },
+  computed: { label: 'ƒ', color: PALETTES[0][6], bg: hexAlpha(PALETTES[0][6]), title: 'Computed' },
 }
 export const COL_TYPE_ORDER = ['text', 'numeric', 'date', 'boolean', 'category']
 

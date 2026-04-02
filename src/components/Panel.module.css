@@ -152,7 +152,39 @@
 .dateChip:hover { color: var(--tx1); border-color: var(--bd3); }
 .dateChipOn { background: var(--ac-lo) !important; border-color: var(--ac) !important; color: var(--ac2) !important; }
 
-/* ── Text filter ─────────────────────────────────────────────────────────── */
+/* ── Text / Regex filter ─────────────────────────────────────────────────── */
+.textModeBar { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+
+/* Segmented control */
+.textModeSeg { display: flex; flex: 1; }
+.textModePill {
+  flex: 1; padding: 5px 0; text-align: center;
+  font: 500 10.5px/1 var(--f); color: var(--tx3);
+  background: var(--bg4); border: 1px solid var(--bd2);
+  cursor: pointer; transition: color .1s, background .1s, border-color .1s;
+  position: relative; margin-right: -1px;
+}
+.textModePill:hover { color: var(--tx2); z-index: 1; }
+.textModePillFirst { border-radius: 5px 0 0 5px; }
+.textModePillLast  { border-radius: 0 5px 5px 0; margin-right: 0; }
+.textModePillOn {
+  background: var(--ac-lo); border-color: var(--ac); color: var(--ac2);
+  z-index: 2; font-weight: 600;
+}
+
+/* Aa case-sensitive toggle — visually distinct from the mode segment */
+.textCsBtn {
+  flex-shrink: 0; padding: 5px 8px; border-radius: 5px;
+  font: 600 10.5px/1 var(--f); color: var(--tx3);
+  background: var(--bg4); border: 1px solid var(--bd2);
+  cursor: pointer; transition: all .1s;
+}
+.textCsBtn:hover { color: var(--tx2); border-color: var(--bd3); }
+.textCsBtnOn { background: var(--ac-lo); border-color: var(--ac); color: var(--ac2); }
+
+.textInErr { border-color: rgba(244,63,94,.5) !important; }
+.textErr { font-size: 10px; color: #fda4af; margin-top: 4px; font-family: var(--m); line-height: 1.4; }
+
 .textRow { display: flex; align-items: center; gap: 5px; }
 .textIn  {
   flex: 1; min-width: 0;
@@ -169,6 +201,35 @@
   transition: all .1s;
 }
 .textClear:hover { background: var(--bg5); color: var(--tx1); }
+
+/* ── Saved filter sets ───────────────────────────────────────────────────── */
+.saveSetBtn {
+  display: block; width: 100%; margin-top: 7px;
+  padding: 5px 8px; border-radius: 6px; font: 500 11px/1 var(--f);
+  background: transparent; border: 1px dashed var(--bd3); color: var(--tx3);
+  cursor: pointer; text-align: center; transition: all var(--ease);
+}
+.saveSetBtn:hover { border-color: var(--ac); color: var(--ac2); background: var(--ac-lo); }
+
+.saveSetRow { display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+.saveSetIn  {
+  flex: 1; min-width: 0;
+  background: var(--bg4); border: 1px solid var(--bd2); border-radius: 5px;
+  padding: 5px 8px; color: var(--tx1); font: 12px/1 var(--f); outline: none;
+  transition: border-color var(--ease);
+}
+.saveSetIn:focus { border-color: var(--ac); }
+.saveSetIn::placeholder { color: var(--tx3); }
+
+.savedSet { border: 1px solid var(--bd1); border-radius: 7px; padding: 8px 10px; margin-bottom: 5px; transition: border-color var(--ease); }
+.savedSet:hover { border-color: var(--bd3); }
+.savedSetTop { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.savedSetName { font-size: 12px; font-weight: 500; color: var(--tx1); flex: 1; }
+.savedSetMeta { font-size: 10px; color: var(--tx3); font-family: var(--m); flex-shrink: 0; }
+.savedSetPreview { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.savedSetTag { font-size: 10.5px; color: var(--tx2); line-height: 1.4; }
+.savedSetTag b { color: var(--ac2); font-weight: 600; }
+.savedSetActions { display: flex; gap: 5px; }
 
 /* Stats grid */
 .stGrid    { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 6px; }

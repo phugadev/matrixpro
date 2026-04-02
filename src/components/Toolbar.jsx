@@ -55,14 +55,14 @@ function DsMenu ({ onRename, onDuplicate, onDelete, onClose }) {
 }
 
 // ─── Column visibility dropdown ───────────────────────────────────────────────
-function ColMenu ({ ds }) {
+function ColMenu ({ ds, onClose, onAddComputedCol }) {
   const { dispatch } = useApp()
   const hidden    = new Set(ds.hiddenCols || [])
   const [search, setSearch] = useState('')
   const searchRef = useRef(null)
 
   const colTypes = useMemo(
-    () => Object.fromEntries(ds.cols.map(c => [c, detectColType(ds, c)])),
+    () => Object.fromEntries(ds.cols.map(c => [c, ds.computedCols?.[c] ? 'computed' : detectColType(ds, c)])),
     [ds.id, ds.cols] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
@@ -109,6 +109,7 @@ function ColMenu ({ ds }) {
       <div className={s.colMenuList}>
         {filtered.map(col => {
           const visible = !hidden.has(col)
+          const isComputed = !!ds.computedCols?.[col]
           const tb = COL_TYPES[colTypes[col]] || COL_TYPES.text
           return (
             <div key={col} className={s.colRow} onClick={() => toggle(col)}>
@@ -120,7 +121,7 @@ function ColMenu ({ ds }) {
                 )}
               </span>
               <span className={s.colTypeBadge} style={{ color: tb.color, background: tb.bg }}>{tb.label}</span>
-              <span className={`${s.colName} ${!visible ? s.colNameHidden : ''}`}>{col}</span>
+              <span className={`${s.colName} ${!visible ? s.colNameHidden : ''}`} style={isComputed ? { fontStyle: 'italic' } : undefined}>{col}</span>
             </div>
           )
         })}
@@ -128,6 +129,21 @@ function ColMenu ({ ds }) {
           <div className={s.colEmpty}>No columns match</div>
         )}
       </div>
+      {onAddComputedCol && (
+        <div style={{ padding: '6px 8px', borderTop: '1px solid var(--bd1)' }}>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', fontSize: 11, padding: '4px 4px', borderRadius: 4, textAlign: 'left' }}
+            onClick={() => { onAddComputedCol(); onClose?.() }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--tx1)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--tx3)'}
+          >
+            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M5 1v8M1 5h8"/>
+            </svg>
+            Add computed column
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -154,7 +170,7 @@ function ExportMenu ({ onCSV, onJSON, onClose }) {
 }
 
 // ─── Main toolbar ─────────────────────────────────────────────────────────────
-export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorChange, onSaveGraph, onExportCSV, onExportJSON, onGroup, onClearFilters }) {
+export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorChange, onSaveGraph, onExportCSV, onExportJSON, onGroup, onJoin, onClearFilters, onAddComputedCol }) {
   const { state, dispatch } = useApp()
   const isGraph = state.view === 'graph'
   const isSql   = state.view === 'sql'
@@ -331,6 +347,17 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
         </button>
       )}
 
+      {/* Join — only when other datasets are open */}
+      {!isSql && state.tabs.filter(t => t.open && t.id !== ds.id).length > 0 && (
+        <button className={s.btn} onClick={onJoin} title="Join with another dataset">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="5"  cy="8" r="4" />
+            <circle cx="11" cy="8" r="4" />
+          </svg>
+          Join
+        </button>
+      )}
+
       {/* Column visibility — table only */}
       {isTable && (
         <div className={s.colWrap} ref={colBtnRef}>
@@ -350,7 +377,7 @@ export default function Toolbar ({ ds, onRename, onDelete, onDuplicate, onColorC
               <span className={s.badge}>{hiddenCount} hidden</span>
             )}
           </button>
-          {colMenuOpen && <ColMenu ds={ds} onClose={() => setColMenuOpen(false)} />}
+          {colMenuOpen && <ColMenu ds={ds} onClose={() => setColMenuOpen(false)} onAddComputedCol={onAddComputedCol} />}
         </div>
       )}
 

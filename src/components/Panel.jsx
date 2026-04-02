@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useApp } from '../store/AppContext'
 import { PALETTES, CHART_TYPES, COL_TYPES } from '../lib/constants'
-import { isNumericCol, detectColType, fmtN, parseNumeric, parseDate } from '../lib/data'
+import { isNumericCol, detectColType, fmtN, parseNumeric, parseDate, specToFn, uid } from '../lib/data'
 import s from './Panel.module.css'
 
 // ─── AI Suggestions ──────────────────────────────────────────────────────────
@@ -158,7 +158,8 @@ function NumericFilter ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
     if (hiN !== null) parts.push(`≤ ${fmtN(hiN)}`)
     onFilterAdd(col,
       r => { const n = parseNumeric(r[col]); return !isNaN(n) && (loN === null || n >= loN) && (hiN === null || n <= hiN) },
-      parts.join(', ')
+      parts.join(', '),
+      { type: 'numeric', lo, hi }
     )
   }
 
@@ -230,7 +231,7 @@ function CatFilter ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
       onFilterRemove(col)
     } else {
       const preview = [...next].slice(0, 3).join(', ') + (next.size > 3 ? ` +${next.size - 3}` : '')
-      onFilterAdd(col, r => next.has(r[col]), `= ${preview}`)
+      onFilterAdd(col, r => next.has(r[col]), `= ${preview}`, { type: 'cat', selected: [...next] })
     }
   }
 
@@ -274,34 +275,89 @@ function CatFilter ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
   )
 }
 
-// ─── Text contains filter ──────────────────────────────────────────────────────
+// ─── Text / Regex filter ───────────────────────────────────────────────────────
+const TEXT_MODES = [
+  { id: 'contains', lbl: 'Contains',   title: 'Value contains text' },
+  { id: 'starts',   lbl: 'Starts',     title: 'Value starts with text' },
+  { id: 'ends',     lbl: 'Ends',       title: 'Value ends with text' },
+  { id: 'regex',    lbl: 'Regex',      title: 'Regular expression match' },
+]
+
 function TextFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
-  const [q, setQ] = useState('')
+  const [q,      setQ]      = useState('')
+  const [mode,   setMode]   = useState('contains')
+  const [cs,     setCs]     = useState(false)
+  const [regErr, setRegErr] = useState('')
 
   const apply = () => {
     if (!q.trim()) { onFilterRemove(col); return }
-    onFilterAdd(col,
-      r => String(r[col] ?? '').toLowerCase().includes(q.toLowerCase()),
-      `contains "${q}"`
-    )
+    setRegErr('')
+    let fn, label
+    if (mode === 'regex') {
+      try {
+        const re = new RegExp(q, cs ? '' : 'i')
+        fn    = r => re.test(String(r[col] ?? ''))
+        label = `/${q}/${cs ? '' : 'i'}`
+      } catch (e) { setRegErr(e.message); return }
+    } else {
+      const needle = cs ? q : q.toLowerCase()
+      const xf     = v => cs ? String(v ?? '') : String(v ?? '').toLowerCase()
+      fn    = mode === 'starts' ? r => xf(r[col]).startsWith(needle)
+            : mode === 'ends'   ? r => xf(r[col]).endsWith(needle)
+            :                     r => xf(r[col]).includes(needle)
+      const modeLabel = { contains: `contains "${q}"`, starts: `starts with "${q}"`, ends: `ends with "${q}"` }
+      label = modeLabel[mode] + (cs ? ' (Aa)' : '')
+    }
+    onFilterAdd(col, fn, label, { type: 'text', mode, q, caseSensitive: cs })
   }
 
-  const clear = () => { setQ(''); onFilterRemove(col) }
+  const clear = () => { setQ(''); setRegErr(''); onFilterRemove(col) }
+  const placeholder = mode === 'regex' ? 'e.g. ^San|Los$' : mode === 'starts' ? 'Starts with…' : mode === 'ends' ? 'Ends with…' : 'Search…'
 
   return (
     <div className={s.fWidget}>
+      {/* Mode segmented control + Aa toggle */}
+      <div className={s.textModeBar}>
+        <div className={s.textModeSeg}>
+          {TEXT_MODES.map((m, i) => (
+            <button
+              key={m.id}
+              className={[
+                s.textModePill,
+                mode === m.id && s.textModePillOn,
+                i === 0 && s.textModePillFirst,
+                i === TEXT_MODES.length - 1 && s.textModePillLast,
+              ].filter(Boolean).join(' ')}
+              onClick={() => { setMode(m.id); setRegErr('') }}
+              title={m.title}
+            >{m.lbl}</button>
+          ))}
+        </div>
+        <button
+          className={[s.textCsBtn, cs && s.textCsBtnOn].filter(Boolean).join(' ')}
+          onClick={() => setCs(v => !v)}
+          title={cs ? 'Case sensitive (click to ignore case)' : 'Case insensitive (click to match case)'}
+        >Aa</button>
+      </div>
+
+      {/* Input */}
       <div className={s.textRow}>
         <input
-          className={s.textIn}
+          className={[s.textIn, regErr && s.textInErr].filter(Boolean).join(' ')}
           value={q}
-          onChange={e => setQ(e.target.value)}
+          onChange={e => { setQ(e.target.value); setRegErr('') }}
           onKeyDown={e => e.key === 'Enter' && apply()}
-          placeholder="Contains…"
+          placeholder={placeholder}
+          style={mode === 'regex' ? { fontFamily: 'var(--m)', fontSize: 11 } : undefined}
         />
         {q && <button className={s.textClear} onClick={clear}>✕</button>}
       </div>
+      {regErr && <div className={s.textErr}>Invalid regex: {regErr.replace(/^Invalid regular expression: \/.*\/: /, '')}</div>}
       <div className={s.fActions}>
         <button className={s.applyBtn} onClick={apply}>Apply</button>
+        {mode === 'regex' && !regErr && q && (
+          <span className={s.fHint}>{cs ? 'case sensitive' : 'case insensitive'}</span>
+        )}
       </div>
     </div>
   )
@@ -315,7 +371,7 @@ function BoolFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
   const pick = v => {
     if (sel === v) { setSel(null); onFilterRemove(col); return }
     setSel(v)
-    onFilterAdd(col, r => String(r[col]).trim() === String(v).trim(), `= ${v}`)
+    onFilterAdd(col, r => String(r[col]).trim() === String(v).trim(), `= ${v}`, { type: 'boolean', sel: v })
   }
 
   return (
@@ -377,7 +433,8 @@ function DateFilter ({ col, ds, onFilterAdd, onFilterRemove }) {
       if (hasFrom && d < fromD) return false
       if (hasTo   && d > toD)   return false
       return true
-    }, parts.join(' · '))
+    }, parts.join(' · '),
+    { type: 'date', selYears: [...sy], selMonths: [...sm], fromStr: fs, toStr: ts })
   }
 
   const toggleYear = y => {
@@ -459,11 +516,12 @@ function ColFilterCard ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
   const { label: typeLabel, color: typeColor, bg: typeBg } = COL_TYPES[colType] || COL_TYPES.text
 
   const renderWidget = () => {
-    if (colType === 'numeric') return <NumericFilter col={col} ds={ds} pal={pal} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-    if (colType === 'date')    return <DateFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-    if (colType === 'boolean') return <BoolFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-    if (uniqCount <= 50)       return <CatFilter     col={col} ds={ds} pal={pal}  onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
-    return                            <TextFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'numeric')  return <NumericFilter col={col} ds={ds} pal={pal} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'date')     return <DateFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'boolean')  return <BoolFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (colType === 'text')     return <TextFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    if (uniqCount <= 50)        return <CatFilter     col={col} ds={ds} pal={pal}  onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
+    return                             <TextFilter    col={col} ds={ds}            onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} />
   }
 
   return (
@@ -486,10 +544,20 @@ function ColFilterCard ({ col, ds, pal, onFilterAdd, onFilterRemove }) {
 }
 
 // ─── Filters tab ─────────────────────────────────────────────────────────────
-function FiltersTab ({ ds, onFilterAdd, onFilterRemove, onFilterClear }) {
+function FiltersTab ({ ds, onFilterAdd, onFilterRemove, onFilterClear, onSaveFilterSet, onLoadFilterSet, onDeleteFilterSet }) {
   const { state } = useApp()
-  const pal = PALETTES[state.palette]
+  const pal       = PALETTES[state.palette]
   const activeKeys = Object.keys(ds.filters || {})
+  const savedSets  = ds.savedFilterSets || []
+
+  const [saveMode, setSaveMode] = useState(false)
+  const [saveName, setSaveName] = useState('')
+
+  const doSave = () => {
+    if (!saveName.trim()) return
+    onSaveFilterSet(saveName.trim())
+    setSaveName(''); setSaveMode(false)
+  }
 
   return (
     <>
@@ -514,7 +582,56 @@ function FiltersTab ({ ds, onFilterAdd, onFilterRemove, onFilterClear }) {
             </div>
           ))
         }
+
+        {/* Save-as-set */}
+        {activeKeys.length > 0 && (
+          saveMode ? (
+            <div className={s.saveSetRow}>
+              <input
+                className={s.saveSetIn}
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setSaveMode(false) }}
+                placeholder="Filter set name…"
+                autoFocus
+              />
+              <button className={s.applyBtn} style={{ flexShrink: 0 }} onClick={doSave}>Save</button>
+              <button className={s.textClear} onClick={() => setSaveMode(false)}>✕</button>
+            </div>
+          ) : (
+            <button className={s.saveSetBtn} onClick={() => setSaveMode(true)}>
+              + Save as filter set
+            </button>
+          )
+        )}
       </div>
+
+      {/* Saved filter sets */}
+      {savedSets.length > 0 && (
+        <>
+          <div className={s.sep} />
+          <div className={s.sec}>
+            <div className={s.lbl}>Saved sets</div>
+            {savedSets.map(ss => (
+              <div key={ss.id} className={s.savedSet}>
+                <div className={s.savedSetTop}>
+                  <div className={s.savedSetName}>{ss.name}</div>
+                  <div className={s.savedSetMeta}>{Object.keys(ss.specs || {}).length} filter{Object.keys(ss.specs || {}).length !== 1 ? 's' : ''}</div>
+                </div>
+                <div className={s.savedSetPreview}>
+                  {Object.entries(ss.filterLabels || {}).slice(0, 3).map(([col, lbl]) => (
+                    <span key={col} className={s.savedSetTag}><b>{col}</b> {lbl}</span>
+                  ))}
+                </div>
+                <div className={s.savedSetActions}>
+                  <button className={s.sgBtn} onClick={() => onLoadFilterSet(ss)}>Load</button>
+                  <button className={s.sgBtn + ' ' + s.sgDel} onClick={() => onDeleteFilterSet(ss.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className={s.sep} />
 
@@ -930,7 +1047,7 @@ function Toggle ({ checked, onChange }) {
 }
 
 // ─── Panel shell ─────────────────────────────────────────────────────────────
-export default function Panel ({ ds, onFilterAdd, onFilterRemove, onFilterClear, onLoadGraph, onDeleteGraph }) {
+export default function Panel ({ ds, onFilterAdd, onFilterRemove, onFilterClear, onSaveFilterSet, onLoadFilterSet, onDeleteFilterSet, onLoadGraph, onDeleteGraph }) {
   const { state, dispatch } = useApp()
   const TABS = ['Filters', 'Stats', 'Graph', 'Saved']
 
@@ -953,7 +1070,7 @@ export default function Panel ({ ds, onFilterAdd, onFilterRemove, onFilterClear,
       </div>
       <div className={s.body}>
         {state.panelTab === 'filters' && (
-          <FiltersTab ds={ds} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} onFilterClear={onFilterClear} />
+          <FiltersTab ds={ds} onFilterAdd={onFilterAdd} onFilterRemove={onFilterRemove} onFilterClear={onFilterClear} onSaveFilterSet={onSaveFilterSet} onLoadFilterSet={onLoadFilterSet} onDeleteFilterSet={onDeleteFilterSet} />
         )}
         {state.panelTab === 'stats' && <StatsTab ds={ds} />}
         {state.panelTab === 'graph' && <GraphTab ds={ds} onApplySuggestion={applySuggestion} />}
