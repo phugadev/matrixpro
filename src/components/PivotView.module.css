@@ -266,6 +266,46 @@
   border-left: 1px solid var(--bd1);
 }
 
+/* Sortable header — pointer + hover highlight */
+.thSortable { cursor: pointer; transition: background var(--ease), color var(--ease); }
+.thSortable:hover { color: var(--tx1); background: var(--bg4); }
+
+/* Active sort column accent */
+.sortActiveCol { color: var(--ac2) !important; }
+
+/* Inner flex container for label + sort icon */
+.thInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  justify-content: flex-end;
+}
+.thRow .thInner { justify-content: flex-start; }
+
+/* Sort indicator icon */
+.sortIcon {
+  font-size: 9px;
+  color: var(--tx3);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--ease);
+}
+.thSortable:hover .sortIcon { opacity: 1; }
+.sortActive { opacity: 1 !important; color: var(--ac2); }
+
+/* Total column — visually separated */
+.thTotalCol {
+  background: var(--bg4) !important;
+  border-left: 1px solid var(--bd2) !important;
+}
+.tdTotalCol {
+  background: rgba(99,102,241,.04) !important;
+  border-left: 1px solid var(--bd2) !important;
+  color: var(--tx1) !important;
+}
+.tr:hover .tdTotalCol { background: rgba(99,102,241,.09) !important; }
+
 .fnBadge {
   font-size: 9px;
   color: var(--tx3);

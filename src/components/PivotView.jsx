@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../store/AppContext'
-import { parseNumeric, fmtN, makeDS } from '../lib/data'
+import { parseNumeric, fmtN } from '../lib/data'
 import s from './PivotView.module.css'
 
 const MAX_COL_VALS = 50
@@ -11,9 +11,8 @@ const AGG_LABEL = { sum: 'Sum', avg: 'Avg', count: 'Count', min: 'Min', max: 'Ma
 
 // ─── Aggregation ──────────────────────────────────────────────────────────────
 function agg(vals, fn) {
-  const nonEmpty = vals.filter(v => v !== '' && v != null)
-  if (fn === 'count') return nonEmpty.length
-  const nums = nonEmpty.map(v => parseNumeric(v)).filter(n => !isNaN(n))
+  if (fn === 'count') return vals.length   // COUNT(*) — all rows in group
+  const nums = vals.filter(v => v !== '' && v != null).map(v => parseNumeric(v)).filter(n => !isNaN(n))
   if (!nums.length) return ''
   switch (fn) {
     case 'sum': return nums.reduce((a, b) => a + b, 0)
@@ -26,30 +25,30 @@ function agg(vals, fn) {
 
 function fmtVal(v) {
   if (v === '' || v == null) return '—'
-  if (typeof v === 'number' || !isNaN(parseNumeric(v))) return fmtN(typeof v === 'number' ? v : parseNumeric(v))
-  return String(v)
+  const n = typeof v === 'number' ? v : parseNumeric(v)
+  return isNaN(n) ? String(v) : fmtN(n)
 }
 
 // ─── Pivot computation ────────────────────────────────────────────────────────
 function computePivot(rows, rowFields, colField, valueFields) {
-  // Build column value list for cross-tab
   const colVals = colField
     ? [...new Set(rows.map(r => r[colField]).filter(v => v != null && v !== ''))].map(String).sort().slice(0, MAX_COL_VALS)
     : null
 
-  // Build value column descriptors
+  // Build value column descriptors — include a Total column per vf when cross-tabbing
   const valCols = []
   for (const vf of valueFields) {
     if (colVals) {
       for (const cv of colVals) {
-        valCols.push({ key: `${vf.col}\x01${cv}`, headerLabel: cv, vfCol: vf.col, fn: vf.fn, colVal: cv, vf })
+        valCols.push({ key: `${vf.col}\x01${cv}`, headerLabel: cv, vfCol: vf.col, fn: vf.fn, colVal: cv, vf, isTotal: false })
       }
+      valCols.push({ key: `${vf.col}\x01__total__`, headerLabel: 'Total', vfCol: vf.col, fn: vf.fn, colVal: '__total__', vf, isTotal: true })
     } else {
-      valCols.push({ key: `${vf.col}\x01`, headerLabel: vf.col, vfCol: vf.col, fn: vf.fn, colVal: null, vf })
+      valCols.push({ key: `${vf.col}\x01`, headerLabel: vf.col, vfCol: vf.col, fn: vf.fn, colVal: null, vf, isTotal: false })
     }
   }
 
-  // Group source rows by the rowFields combination
+  // Group source rows
   const groups = new Map()
   for (const row of rows) {
     const key = rowFields.map(f => String(row[f] ?? '')).join('\x00')
@@ -63,9 +62,9 @@ function computePivot(rows, rowFields, colField, valueFields) {
     const outRow = {}
     rowFields.forEach((f, i) => { outRow[f] = g.rowVals[i] })
     for (const vc of valCols) {
-      const subset = vc.colVal != null
-        ? g.rows.filter(r => String(r[colField] ?? '') === vc.colVal)
-        : g.rows
+      const subset = (vc.colVal === '__total__' || vc.colVal === null)
+        ? g.rows
+        : g.rows.filter(r => String(r[colField] ?? '') === vc.colVal)
       outRow[vc.key] = agg(subset.map(r => r[vc.vf.col]), vc.fn)
     }
     resultRows.push(outRow)
@@ -75,7 +74,9 @@ function computePivot(rows, rowFields, colField, valueFields) {
   const totalRow = {}
   rowFields.forEach((f, i) => { totalRow[f] = i === 0 ? 'Grand Total' : '' })
   for (const vc of valCols) {
-    const subset = vc.colVal != null ? rows.filter(r => String(r[colField] ?? '') === vc.colVal) : rows
+    const subset = (vc.colVal === '__total__' || vc.colVal === null)
+      ? rows
+      : rows.filter(r => String(r[colField] ?? '') === vc.colVal)
     totalRow[vc.key] = agg(subset.map(r => r[vc.vf.col]), vc.fn)
   }
 
@@ -110,6 +111,12 @@ function FieldChip({ label, onRemove, children }) {
   )
 }
 
+// ─── Sort icon ────────────────────────────────────────────────────────────────
+function SortIcon({ active, dir }) {
+  if (active) return <span className={`${s.sortIcon} ${s.sortActive}`}>{dir === 1 ? '↑' : '↓'}</span>
+  return <span className={s.sortIcon}>⇅</span>
+}
+
 // ─── PivotView ────────────────────────────────────────────────────────────────
 export default function PivotView({ ds, onOpenAsDataset }) {
   const { state, dispatch } = useApp()
@@ -123,8 +130,13 @@ export default function PivotView({ ds, onOpenAsDataset }) {
 
   const [addRowOpen, setAddRowOpen] = useState(false)
   const [addValOpen, setAddValOpen] = useState(false)
+  const [sortKey,    setSortKey]    = useState(null)
+  const [sortDir,    setSortDir]    = useState(-1)
   const addRowRef = useRef(null)
   const addValRef = useRef(null)
+
+  // Reset sort when config changes
+  useEffect(() => { setSortKey(null); setSortDir(-1) }, [rowFields, colField, valueFields])
 
   useEffect(() => {
     if (!addRowOpen) return
@@ -138,8 +150,7 @@ export default function PivotView({ ds, onOpenAsDataset }) {
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
   }, [addValOpen])
 
-  const allCols = useMemo(() => ds.cols.filter(c => !ds.computedCols?.[c]), [ds.cols, ds.computedCols])
-
+  const allCols     = useMemo(() => ds.cols.filter(c => !ds.computedCols?.[c]), [ds.cols, ds.computedCols])
   const unusedForRow = useMemo(() => allCols.filter(c => !rowFields.includes(c)), [allCols, rowFields])
   const unusedForVal = useMemo(() => allCols.filter(c => !valueFields.find(v => v.col === c)), [allCols, valueFields])
 
@@ -148,10 +159,32 @@ export default function PivotView({ ds, onOpenAsDataset }) {
     return computePivot(ds.rows, rowFields, colField || null, valueFields)
   }, [ds.rows, rowFields, colField, valueFields])
 
-  const addRow    = useCallback(col => setRowFields([...rowFields, col]), [rowFields, setRowFields])
-  const removeRow = useCallback(col => setRowFields(rowFields.filter(c => c !== col)), [rowFields, setRowFields])
-  const addVal    = useCallback(col => setValueFields([...valueFields, { col, fn: 'sum' }]), [valueFields, setValueFields])
-  const removeVal = useCallback(col => setValueFields(valueFields.filter(v => v.col !== col)), [valueFields, setValueFields])
+  // Apply sort to result rows
+  const sortedRows = useMemo(() => {
+    if (!pivot) return []
+    if (!sortKey) return pivot.resultRows
+    const isRowField = rowFields.includes(sortKey)
+    const isValCol   = pivot.valCols.some(vc => vc.key === sortKey)
+    if (!isRowField && !isValCol) return pivot.resultRows
+    return [...pivot.resultRows].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey]
+      if (av === '' || av == null) return 1
+      if (bv === '' || bv == null) return -1
+      const an = parseNumeric(av), bn = parseNumeric(bv)
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir
+      return String(av).localeCompare(String(bv)) * sortDir
+    })
+  }, [pivot, sortKey, sortDir, rowFields])
+
+  const handleSort = key => {
+    if (sortKey === key) setSortDir(d => -d)
+    else { setSortKey(key); setSortDir(-1) }
+  }
+
+  const addRow      = useCallback(col => setRowFields([...rowFields, col]), [rowFields, setRowFields])
+  const removeRow   = useCallback(col => setRowFields(rowFields.filter(c => c !== col)), [rowFields, setRowFields])
+  const addVal      = useCallback(col => setValueFields([...valueFields, { col, fn: 'sum' }]), [valueFields, setValueFields])
+  const removeVal   = useCallback(col => setValueFields(valueFields.filter(v => v.col !== col)), [valueFields, setValueFields])
   const changeValFn = useCallback((col, fn) => setValueFields(valueFields.map(v => v.col === col ? { ...v, fn } : v)), [valueFields, setValueFields])
 
   const handleColFieldChange = useCallback(e => {
@@ -161,19 +194,21 @@ export default function PivotView({ ds, onOpenAsDataset }) {
   }, [setColField, rowFields, setRowFields])
 
   const handleOpenAsDataset = useCallback(() => {
-    if (!pivot || !pivot.resultRows.length) return
-    const { resultRows, valCols } = pivot
+    if (!pivot || !sortedRows.length) return
+    const { valCols } = pivot
     const exportColNames = valCols.map(vc =>
-      vc.colVal != null ? `${vc.vfCol} [${vc.colVal}]` : `${vc.headerLabel} (${AGG_LABEL[vc.fn].toLowerCase()})`
+      vc.isTotal        ? `${vc.vfCol} [Total]`
+      : vc.colVal != null ? `${vc.vfCol} [${vc.colVal}]`
+      : `${vc.headerLabel} (${AGG_LABEL[vc.fn].toLowerCase()})`
     )
-    const rows = resultRows.map(r => {
+    const rows = sortedRows.map(r => {
       const out = {}
       rowFields.forEach(f => { out[f] = r[f] })
       valCols.forEach((vc, i) => { out[exportColNames[i]] = r[vc.key] })
       return out
     })
     onOpenAsDataset(rows)
-  }, [pivot, rowFields, onOpenAsDataset])
+  }, [pivot, sortedRows, rowFields, onOpenAsDataset])
 
   // ── Header rendering ──────────────────────────────────────────────────────
   const renderHeader = () => {
@@ -181,7 +216,7 @@ export default function PivotView({ ds, onOpenAsDataset }) {
     const { valCols, colVals } = pivot
 
     if (colVals) {
-      // Two-row header: top row spans value groups, bottom row shows colVals
+      // Two-row: top spans value groups (including Total), bottom shows colVals + "Total"
       const vfGroups = []
       for (const vc of valCols) {
         const last = vfGroups[vfGroups.length - 1]
@@ -192,8 +227,12 @@ export default function PivotView({ ds, onOpenAsDataset }) {
         <thead>
           <tr>
             {rowFields.map((f, i) => (
-              <th key={f} rowSpan={2} className={`${s.th} ${s.thRow}`}
-                style={{ left: i * ROW_COL_W, minWidth: ROW_COL_W, width: ROW_COL_W }}>{f}</th>
+              <th key={f} rowSpan={2}
+                className={`${s.th} ${s.thRow} ${s.thSortable} ${sortKey === f ? s.sortActiveCol : ''}`}
+                style={{ left: i * ROW_COL_W, minWidth: ROW_COL_W, width: ROW_COL_W }}
+                onClick={() => handleSort(f)}>
+                <span className={s.thInner}>{f}<SortIcon active={sortKey === f} dir={sortDir} /></span>
+              </th>
             ))}
             {vfGroups.map(g => (
               <th key={g.col} colSpan={g.vcs.length} className={`${s.th} ${s.thGroup}`}>
@@ -203,7 +242,14 @@ export default function PivotView({ ds, onOpenAsDataset }) {
           </tr>
           <tr>
             {valCols.map(vc => (
-              <th key={vc.key} className={`${s.th} ${s.thVal}`}>{vc.headerLabel}</th>
+              <th key={vc.key}
+                className={`${s.th} ${s.thVal} ${s.thSortable} ${vc.isTotal ? s.thTotalCol : ''} ${sortKey === vc.key ? s.sortActiveCol : ''}`}
+                onClick={() => handleSort(vc.key)}>
+                <span className={s.thInner}>
+                  {vc.headerLabel}
+                  <SortIcon active={sortKey === vc.key} dir={sortDir} />
+                </span>
+              </th>
             ))}
           </tr>
         </thead>
@@ -214,12 +260,21 @@ export default function PivotView({ ds, onOpenAsDataset }) {
       <thead>
         <tr>
           {rowFields.map((f, i) => (
-            <th key={f} className={`${s.th} ${s.thRow}`}
-              style={{ left: i * ROW_COL_W, minWidth: ROW_COL_W, width: ROW_COL_W }}>{f}</th>
+            <th key={f}
+              className={`${s.th} ${s.thRow} ${s.thSortable} ${sortKey === f ? s.sortActiveCol : ''}`}
+              style={{ left: i * ROW_COL_W, minWidth: ROW_COL_W, width: ROW_COL_W }}
+              onClick={() => handleSort(f)}>
+              <span className={s.thInner}>{f}<SortIcon active={sortKey === f} dir={sortDir} /></span>
+            </th>
           ))}
           {valCols.map(vc => (
-            <th key={vc.key} className={`${s.th} ${s.thVal}`}>
-              {vc.headerLabel} <span className={s.fnBadge}>{AGG_LABEL[vc.fn]}</span>
+            <th key={vc.key}
+              className={`${s.th} ${s.thVal} ${s.thSortable} ${sortKey === vc.key ? s.sortActiveCol : ''}`}
+              onClick={() => handleSort(vc.key)}>
+              <span className={s.thInner}>
+                {vc.headerLabel} <span className={s.fnBadge}>{AGG_LABEL[vc.fn]}</span>
+                <SortIcon active={sortKey === vc.key} dir={sortDir} />
+              </span>
             </th>
           ))}
         </tr>
@@ -230,10 +285,10 @@ export default function PivotView({ ds, onOpenAsDataset }) {
   // ── Body rendering ────────────────────────────────────────────────────────
   const renderBody = () => {
     if (!pivot) return null
-    const { resultRows, totalRow, valCols } = pivot
+    const { totalRow, valCols } = pivot
     return (
       <tbody>
-        {resultRows.map((row, ri) => (
+        {sortedRows.map((row, ri) => (
           <tr key={ri} className={s.tr}>
             {rowFields.map((f, i) => (
               <td key={f} className={`${s.td} ${s.tdRow}`}
@@ -242,7 +297,9 @@ export default function PivotView({ ds, onOpenAsDataset }) {
               </td>
             ))}
             {valCols.map(vc => (
-              <td key={vc.key} className={`${s.td} ${s.tdVal}`}>{fmtVal(row[vc.key])}</td>
+              <td key={vc.key} className={`${s.td} ${s.tdVal} ${vc.isTotal ? s.tdTotalCol : ''}`}>
+                {fmtVal(row[vc.key])}
+              </td>
             ))}
           </tr>
         ))}
@@ -254,14 +311,16 @@ export default function PivotView({ ds, onOpenAsDataset }) {
             </td>
           ))}
           {valCols.map(vc => (
-            <td key={vc.key} className={`${s.td} ${s.tdVal} ${s.tdTotal}`}>{fmtVal(totalRow[vc.key])}</td>
+            <td key={vc.key} className={`${s.td} ${s.tdVal} ${s.tdTotal} ${vc.isTotal ? s.tdTotalCol : ''}`}>
+              {fmtVal(totalRow[vc.key])}
+            </td>
           ))}
         </tr>
       </tbody>
     )
   }
 
-  const canOpen = pivot && pivot.resultRows.length > 0
+  const canOpen = pivot && sortedRows.length > 0
 
   return (
     <div className={s.root}>
@@ -301,7 +360,7 @@ export default function PivotView({ ds, onOpenAsDataset }) {
           </select>
           {colField && (
             <div className={s.colHint}>
-              Cross-tabulates by unique values of <b>{colField}</b>
+              Cross-tabulates by <b>{colField}</b>
               {pivot?.colVals && pivot.colVals.length === MAX_COL_VALS && (
                 <span className={s.capWarn}> · capped at {MAX_COL_VALS}</span>
               )}
@@ -338,10 +397,9 @@ export default function PivotView({ ds, onOpenAsDataset }) {
 
         <div className={s.configSpacer} />
 
-        {/* Stats */}
         {pivot && (
           <div className={s.stats}>
-            {pivot.resultRows.length.toLocaleString()} groups · {ds.rows.length.toLocaleString()} source rows
+            {sortedRows.length.toLocaleString()} groups · {ds.rows.length.toLocaleString()} source rows
           </div>
         )}
 
