@@ -246,7 +246,10 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
   }, [ds.hiddenCols, ds.id, dispatch])
 
   const deleteColFn = useCallback((col) => {
-    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: colSnap() })
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: {
+      cols: ds.cols, hiddenCols: ds.hiddenCols, pinnedCols: ds.pinnedCols,
+      colWidths: ds.colWidths, pinnedTypes: ds.pinnedTypes, computedCols: ds.computedCols, sorts: ds.sorts,
+    }})
     const newCols = ds.cols.filter(c => c !== col)
     const pt = { ...(ds.pinnedTypes || {}) }; delete pt[col]
     const hc = (ds.hiddenCols || []).filter(c => c !== col)
@@ -254,7 +257,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     const cf = { ...(ds.colFormats || {}) }; delete cf[col]
     const nf = { ...(ds.numberFormats || {}) }; delete nf[col]
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols: newCols, pinnedTypes: pt, hiddenCols: hc, colWidths: cw, colFormats: cf, numberFormats: nf } })
-  }, [ds, dispatch, colSnap])
+  }, [ds, dispatch])
 
   // ── Column rename ─────────────────────────────────────────────────────────────
   const [renamingCol, setRenamingCol] = useState(null)
