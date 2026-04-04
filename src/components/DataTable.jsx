@@ -13,6 +13,16 @@ const OVERSCAN  = 20
 const MIN_COL_W = 50
 const DEFAULT_COL_W = { numeric: 110, date: 150, boolean: 90, text: 130 }
 
+const NUM_FMTS = [
+  { key: null,         label: 'Auto',       example: '1.5k' },
+  { key: 'int',        label: 'Integer',    example: '1,234' },
+  { key: 'fixed1',     label: '1 decimal',  example: '1,234.5' },
+  { key: 'fixed2',     label: '2 decimals', example: '1,234.56' },
+  { key: 'currency',   label: 'Currency',   example: '$1,234' },
+  { key: 'percent',    label: 'Percent',    example: '42.3%' },
+  { key: 'scientific', label: 'Scientific', example: '1.23e+2' },
+]
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function applyFilters (rows, filters) {
   return Object.values(filters).reduce((acc, fn) => acc.filter(fn), rows)
@@ -1002,89 +1012,84 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                           </span>
                         )}
                       </div>
-                      <div className={s.thMeta}>
-                        {metaEl}
-                        {!isComputed && ct === 'numeric' && (() => {
-                          const colRulesH    = getColRules(ds, col)
-                          const scaleOn      = colRulesH.some(r => r.type === 'scale')
-                          const hasThreshold = colRulesH.some(r => r.type === 'threshold')
-                          const activeFmt    = (ds.numberFormats || {})[col] || null
-                          const fmtOpen  = numFmtOpen === col
-                          const NUM_FMTS = [
-                            { key: null,         label: 'Auto',       example: '1.5k' },
-                            { key: 'int',        label: 'Integer',    example: '1,234' },
-                            { key: 'fixed1',     label: '1 decimal',  example: '1,234.5' },
-                            { key: 'fixed2',     label: '2 decimals', example: '1,234.56' },
-                            { key: 'currency',   label: 'Currency',   example: '$1,234' },
-                            { key: 'percent',    label: 'Percent',    example: '42.3%' },
-                            { key: 'scientific', label: 'Scientific', example: '1.23e+2' },
-                          ]
-                          return (
-                            <>
-                              <button
-                                data-numfmt={col}
-                                className={s.numFmtBtn + (activeFmt ? ' ' + s.numFmtBtnOn : '')}
-                                onMouseDown={e => e.stopPropagation()}
-                                onClick={e => { e.stopPropagation(); setNumFmtOpen(fmtOpen ? null : col) }}
-                                title={activeFmt ? `Format: ${activeFmt} — click to change` : 'Set number format'}
-                              >
-                                <svg width="10" height="9" viewBox="0 0 20 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                  <text x="0" y="12" fontSize="13" fontFamily="monospace" fill="currentColor" stroke="none">123</text>
-                                </svg>
-                              </button>
-                              {fmtOpen && (
-                                <div data-numfmt={col} className={s.numFmtMenu}>
-                                  {NUM_FMTS.map(f => (
-                                    <div
-                                      key={String(f.key)}
-                                      className={s.numFmtItem + (activeFmt === f.key ? ' ' + s.numFmtItemOn : '')}
-                                      onMouseDown={e => e.stopPropagation()}
-                                      onClick={e => { e.stopPropagation(); setNumFormat(col, f.key) }}
-                                    >
-                                      <span>{f.label}</span>
-                                      <span className={s.numFmtEx}>{f.example}</span>
-                                    </div>
-                                  ))}
-                                </div>
+                      {/* Compute per-column formatting state once, used in both thMeta buttons and menu */}
+                      {(() => {
+                        const colRulesH    = !isComputed && ct === 'numeric' ? getColRules(ds, col) : null
+                        const scaleOn      = colRulesH?.some(r => r.type === 'scale') ?? false
+                        const hasThreshold = colRulesH?.some(r => r.type === 'threshold') ?? false
+                        const activeFmt    = !isComputed && ct === 'numeric' ? ((ds.numberFormats || {})[col] || null) : null
+                        const fmtOpen      = numFmtOpen === col
+                        return (
+                          <>
+                            <div className={s.thMeta}>
+                              {metaEl}
+                              {!isComputed && ct === 'numeric' && (
+                                <>
+                                  <button
+                                    data-numfmt={col}
+                                    className={s.numFmtBtn + (activeFmt ? ' ' + s.numFmtBtnOn : '')}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onClick={e => { e.stopPropagation(); setNumFmtOpen(fmtOpen ? null : col) }}
+                                    title={activeFmt ? `Format: ${activeFmt} — click to change` : 'Set number format'}
+                                  >
+                                    123
+                                  </button>
+                                  <button
+                                    className={s.threshBtn + (hasThreshold ? ' ' + s.threshBtnOn : '')}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onClick={e => { e.stopPropagation(); hasThreshold ? clearThresholdRule(col) : openThresholdModal(col) }}
+                                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openThresholdModal(col) }}
+                                    title={hasThreshold ? 'Threshold rule active — right-click to edit · click to clear' : 'Add threshold highlight rule'}
+                                  >
+                                    <svg width="9" height="9" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                      <path d="M1 7h12M7 1l3 6-3 6"/>
+                                    </svg>
+                                  </button>
+                                  <button
+                                    className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onClick={e => { e.stopPropagation(); toggleColScale(col) }}
+                                    title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
+                                  >
+                                    <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                      <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
+                                      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
+                                    </svg>
+                                  </button>
+                                </>
                               )}
-                              <button
-                                className={s.threshBtn + (hasThreshold ? ' ' + s.threshBtnOn : '')}
-                                onMouseDown={e => e.stopPropagation()}
-                                onClick={e => { e.stopPropagation(); hasThreshold ? clearThresholdRule(col) : openThresholdModal(col) }}
-                                onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openThresholdModal(col) }}
-                                title={hasThreshold ? 'Threshold rule active — right-click to edit · click to clear' : 'Add threshold highlight rule'}
-                              >
-                                <svg width="9" height="9" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                  <path d="M1 7h12M7 1l3 6-3 6"/>
-                                </svg>
-                              </button>
-                              <button
-                                className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
-                                onMouseDown={e => e.stopPropagation()}
-                                onClick={e => { e.stopPropagation(); toggleColScale(col) }}
-                                title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
-                              >
-                                <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                  <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
-                                  <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
-                                </svg>
-                              </button>
-                            </>
-                          )
-                        })()}
-                        {!isComputed && (
-                          <button
-                            className={s.pinBtn + (isPinned ? ' ' + s.pinBtnOn : '')}
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); togglePin(colVisIdx) }}
-                            title={isPinned ? 'Unfreeze column' : 'Freeze column'}
-                          >
-                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor">
-                              <path d="M9.5 2L14 6.5l-2 2-1.5-.5-2 2 .5 1.5-1.5 1.5-3-3-3 3-1-1 3-3-3-3 1.5-1.5 1.5.5 2-2L9.5 2z"/>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
+                              {!isComputed && (
+                                <button
+                                  className={s.pinBtn + (isPinned ? ' ' + s.pinBtnOn : '')}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={e => { e.stopPropagation(); togglePin(colVisIdx) }}
+                                  title={isPinned ? 'Unfreeze column' : 'Freeze column'}
+                                >
+                                  <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M9.5 2L14 6.5l-2 2-1.5-.5-2 2 .5 1.5-1.5 1.5-3-3-3 3-1-1 3-3-3-3 1.5-1.5 1.5.5 2-2L9.5 2z"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                            {/* Format picker dropdown — rendered OUTSIDE thMeta to avoid overflow:hidden clipping */}
+                            {fmtOpen && (
+                              <div data-numfmt={col} className={s.numFmtMenu}>
+                                {NUM_FMTS.map(f => (
+                                  <div
+                                    key={String(f.key)}
+                                    className={s.numFmtItem + (activeFmt === f.key ? ' ' + s.numFmtItemOn : '')}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onClick={e => { e.stopPropagation(); setNumFormat(col, f.key) }}
+                                  >
+                                    <span>{f.label}</span>
+                                    <span className={s.numFmtEx}>{f.example}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                     <div
                       className={`${s.resizeHandle}${draggingCol === col ? ' ' + s.resizeHandleActive : ''}`}
