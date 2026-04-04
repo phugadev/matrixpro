@@ -351,58 +351,34 @@
 /* Separator line after last pinned column */
 .pinnedLast th, .pinnedLast td { border-right: 2px solid var(--bd2) !important; }
 
-/* Color-scale toggle button — lives in .thMeta, hidden unless hovered or active */
-.scaleBtn {
-  display: none; align-items: center; justify-content: center;
-  padding: 1px 3px; flex-shrink: 0;
-  background: none; border: none; cursor: pointer;
-  color: var(--tx3); border-radius: 3px;
-  transition: color .1s, background .1s;
-}
-.thi:hover .scaleBtn { display: flex; }
-.scaleBtnOn { display: flex !important; color: var(--ac2) !important; }
-.scaleBtn:hover { color: var(--tx1); background: var(--bg5); }
-
-/* Number format picker button — lives in .thMeta */
-.numFmtBtn {
-  display: none; align-items: center; justify-content: center;
-  padding: 1px 4px; flex-shrink: 0;
-  background: none; border: none; cursor: pointer;
-  color: var(--tx3); border-radius: 3px; font-size: 9px; font-family: var(--m); font-weight: 600;
-  transition: color .1s, background .1s;
-}
-.thi:hover .numFmtBtn { display: flex; }
-.numFmtBtnOn { display: flex !important; color: var(--ac2) !important; }
-.numFmtBtn:hover { color: var(--tx1); background: var(--bg5); }
-
-/* Number format dropdown */
-.numFmtMenu {
-  position: absolute; top: calc(100% + 2px); left: 0; z-index: 100;
-  background: var(--bg3); border: 1px solid var(--bd2); border-radius: 7px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.3); overflow: hidden; min-width: 160px;
+/* ── Column context menu (right-click on header) ────────────────────────── */
+.colCtxMenu {
+  position: fixed; z-index: 200;
+  background: var(--bg3); border: 1px solid var(--bd2); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.4), 0 1px 3px rgba(0,0,0,.3);
+  min-width: 210px; overflow: hidden;
   animation: fadeUp .1s ease;
+  padding: 4px 0;
 }
-.numFmtItem {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 10px; font-size: 11.5px; color: var(--tx2); cursor: pointer;
-  gap: 12px;
+.colCtxItem {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px; font-size: 12px; color: var(--tx2);
+  cursor: pointer; user-select: none;
+  transition: background .08s, color .08s;
 }
-.numFmtItem:hover { background: var(--bg4); color: var(--tx1); }
-.numFmtItemOn { background: rgba(99,102,241,.08); color: var(--ac2); }
-.numFmtItemOn:hover { background: rgba(99,102,241,.14); }
-.numFmtEx { font-family: var(--m); font-size: 10.5px; color: var(--tx3); }
-
-/* Threshold rule button — lives in .thMeta */
-.threshBtn {
-  display: none; align-items: center; justify-content: center;
-  padding: 1px 3px; flex-shrink: 0;
-  background: none; border: none; cursor: pointer;
-  color: var(--tx3); border-radius: 3px;
-  transition: color .1s, background .1s;
+.colCtxItem:hover { background: var(--bg4); color: var(--tx1); }
+.colCtxItemOn { color: var(--ac2) !important; }
+.colCtxItemOn:hover { background: rgba(99,102,241,.08) !important; }
+.colCtxItemDanger { display: flex; align-items: center; gap: 7px; padding: 6px 12px; font-size: 12px; color: #ef4444; cursor: pointer; user-select: none; }
+.colCtxItemDanger:hover { background: rgba(239,68,68,.08); }
+.colCtxSep { height: 1px; background: var(--bd1); margin: 3px 0; }
+.colCtxLabel {
+  padding: 5px 12px 3px; font-size: 10px; font-weight: 600;
+  color: var(--tx3); text-transform: uppercase; letter-spacing: .04em;
+  user-select: none;
 }
-.thi:hover .threshBtn { display: flex; }
-.threshBtnOn { display: flex !important; color: #ef4444 !important; }
-.threshBtn:hover { color: var(--tx1); background: var(--bg5); }
+.colCtxCheck { margin-left: auto; font-size: 11px; color: var(--ac2); }
+.colCtxEx { margin-left: auto; font-family: var(--m); font-size: 10.5px; color: var(--tx3); }
 
 /* Threshold rule modal */
 .modalOverlay {
@@ -454,18 +430,6 @@
   border-radius: 6px; color: #fff; font: 500 12px/1 var(--f); cursor: pointer;
 }
 .threshSaveBtn:disabled { opacity: .4; cursor: not-allowed; }
-
-/* Pin toggle button — lives in .thMeta, hidden unless hovered or active */
-.pinBtn {
-  display: none; align-items: center; justify-content: center;
-  margin-left: auto; padding: 1px 3px; flex-shrink: 0;
-  background: none; border: none; cursor: pointer;
-  color: var(--tx3); border-radius: 3px;
-  transition: color .1s, background .1s;
-}
-.thi:hover .pinBtn { display: flex; }
-.pinBtnOn { display: flex !important; color: var(--ac2) !important; }
-.pinBtn:hover { color: var(--tx1); background: var(--bg5); }
 
 /* ── Multi-sort priority badge ───────────────────────────────────────────── */
 .sortPri {

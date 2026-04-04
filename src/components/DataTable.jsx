@@ -222,20 +222,39 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     setColRules(col, getColRules(ds, col).filter(r => r.type !== 'threshold'))
   }, [ds, setColRules])
 
-  // Per-column number format picker
-  const [numFmtOpen, setNumFmtOpen] = useState(null) // col name | null
-  useEffect(() => {
-    if (!numFmtOpen) return
-    const h = e => { if (!e.target.closest('[data-numfmt]')) setNumFmtOpen(null) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [numFmtOpen])
   const setNumFormat = useCallback((col, fmt) => {
     const cur = ds.numberFormats || {}
     const next = fmt ? { ...cur, [col]: fmt } : Object.fromEntries(Object.entries(cur).filter(([k]) => k !== col))
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { numberFormats: next } })
-    setNumFmtOpen(null)
   }, [ds.numberFormats, ds.id, dispatch])
+
+  // ── Column context menu ──────────────────────────────────────────────────────
+  const [colCtxMenu, setColCtxMenu] = useState(null) // { col, x, y } | null
+  useEffect(() => {
+    if (!colCtxMenu) return
+    const h = e => { if (!e.target.closest('[data-colctx]')) setColCtxMenu(null) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [colCtxMenu])
+
+  const sortByDir = useCallback((col, dir) => {
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { sorts: [{ col, dir }] } })
+  }, [ds.id, dispatch])
+
+  const hideCol = useCallback((col) => {
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { hiddenCols: [...(ds.hiddenCols || []), col] } })
+  }, [ds.hiddenCols, ds.id, dispatch])
+
+  const deleteColFn = useCallback((col) => {
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: colSnap() })
+    const newCols = ds.cols.filter(c => c !== col)
+    const pt = { ...(ds.pinnedTypes || {}) }; delete pt[col]
+    const hc = (ds.hiddenCols || []).filter(c => c !== col)
+    const cw = { ...(ds.colWidths || {}) }; delete cw[col]
+    const cf = { ...(ds.colFormats || {}) }; delete cf[col]
+    const nf = { ...(ds.numberFormats || {}) }; delete nf[col]
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols: newCols, pinnedTypes: pt, hiddenCols: hc, colWidths: cw, colFormats: cf, numberFormats: nf } })
+  }, [ds, dispatch, colSnap])
 
   // ── Column rename ─────────────────────────────────────────────────────────────
   const [renamingCol, setRenamingCol] = useState(null)
@@ -967,6 +986,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     onDragOver={e => handleColDragOver(e, col)}
                     onDragEnd={handleColDragEnd}
                     onDrop={e => handleColDrop(e, col)}
+                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setColCtxMenu({ col, x: e.clientX, y: e.clientY }) }}
                   >
                     <div className={s.thi}>
                       <div className={s.thName}>
@@ -1012,84 +1032,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                           </span>
                         )}
                       </div>
-                      {/* Compute per-column formatting state once, used in both thMeta buttons and menu */}
-                      {(() => {
-                        const colRulesH    = !isComputed && ct === 'numeric' ? getColRules(ds, col) : null
-                        const scaleOn      = colRulesH?.some(r => r.type === 'scale') ?? false
-                        const hasThreshold = colRulesH?.some(r => r.type === 'threshold') ?? false
-                        const activeFmt    = !isComputed && ct === 'numeric' ? ((ds.numberFormats || {})[col] || null) : null
-                        const fmtOpen      = numFmtOpen === col
-                        return (
-                          <>
-                            <div className={s.thMeta}>
-                              {metaEl}
-                              {!isComputed && ct === 'numeric' && (
-                                <>
-                                  <button
-                                    data-numfmt={col}
-                                    className={s.numFmtBtn + (activeFmt ? ' ' + s.numFmtBtnOn : '')}
-                                    onMouseDown={e => e.stopPropagation()}
-                                    onClick={e => { e.stopPropagation(); setNumFmtOpen(fmtOpen ? null : col) }}
-                                    title={activeFmt ? `Format: ${activeFmt} — click to change` : 'Set number format'}
-                                  >
-                                    123
-                                  </button>
-                                  <button
-                                    className={s.threshBtn + (hasThreshold ? ' ' + s.threshBtnOn : '')}
-                                    onMouseDown={e => e.stopPropagation()}
-                                    onClick={e => { e.stopPropagation(); hasThreshold ? clearThresholdRule(col) : openThresholdModal(col) }}
-                                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openThresholdModal(col) }}
-                                    title={hasThreshold ? 'Threshold rule active — right-click to edit · click to clear' : 'Add threshold highlight rule'}
-                                  >
-                                    <svg width="9" height="9" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                      <path d="M1 7h12M7 1l3 6-3 6"/>
-                                    </svg>
-                                  </button>
-                                  <button
-                                    className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
-                                    onMouseDown={e => e.stopPropagation()}
-                                    onClick={e => { e.stopPropagation(); toggleColScale(col) }}
-                                    title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
-                                  >
-                                    <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                      <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
-                                      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
-                                    </svg>
-                                  </button>
-                                </>
-                              )}
-                              {!isComputed && (
-                                <button
-                                  className={s.pinBtn + (isPinned ? ' ' + s.pinBtnOn : '')}
-                                  onMouseDown={e => e.stopPropagation()}
-                                  onClick={e => { e.stopPropagation(); togglePin(colVisIdx) }}
-                                  title={isPinned ? 'Unfreeze column' : 'Freeze column'}
-                                >
-                                  <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M9.5 2L14 6.5l-2 2-1.5-.5-2 2 .5 1.5-1.5 1.5-3-3-3 3-1-1 3-3-3-3 1.5-1.5 1.5.5 2-2L9.5 2z"/>
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                            {/* Format picker dropdown — rendered OUTSIDE thMeta to avoid overflow:hidden clipping */}
-                            {fmtOpen && (
-                              <div data-numfmt={col} className={s.numFmtMenu}>
-                                {NUM_FMTS.map(f => (
-                                  <div
-                                    key={String(f.key)}
-                                    className={s.numFmtItem + (activeFmt === f.key ? ' ' + s.numFmtItemOn : '')}
-                                    onMouseDown={e => e.stopPropagation()}
-                                    onClick={e => { e.stopPropagation(); setNumFormat(col, f.key) }}
-                                  >
-                                    <span>{f.label}</span>
-                                    <span className={s.numFmtEx}>{f.example}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )
-                      })()}
+                      <div className={s.thMeta}>{metaEl}</div>
                     </div>
                     <div
                       className={`${s.resizeHandle}${draggingCol === col ? ' ' + s.resizeHandleActive : ''}`}
@@ -1313,6 +1256,104 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
           </button>
         </div>
       )}
+
+      {/* ── Column context menu ── */}
+      {colCtxMenu && (() => {
+        const { col, x, y } = colCtxMenu
+        const ct         = colTypes[col]
+        const isComputed = ct === 'computed'
+        const colVisIdx  = visibleCols.indexOf(col)
+        const isPinned   = colVisIdx < pinnedCount
+        const colRules   = getColRules(ds, col)
+        const scaleOn    = colRules.some(r => r.type === 'scale')
+        const hasThresh  = colRules.some(r => r.type === 'threshold')
+        const activeFmt  = (ds.numberFormats || {})[col] || null
+        const close      = () => setColCtxMenu(null)
+        const menuX      = Math.min(x, window.innerWidth  - 230)
+        const menuY      = Math.min(y, window.innerHeight - 420)
+        return (
+          <div
+            data-colctx
+            className={s.colCtxMenu}
+            style={{ top: menuY, left: menuX }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            {/* Sort */}
+            {!isComputed && <>
+              <div className={s.colCtxItem} onClick={() => { sortByDir(col, 1); close() }}>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 10V2M3 5l3-3 3 3"/></svg>
+                Sort A → Z
+              </div>
+              <div className={s.colCtxItem} onClick={() => { sortByDir(col, -1); close() }}>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 2v8M3 7l3 3 3-3"/></svg>
+                Sort Z → A
+              </div>
+              <div className={s.colCtxSep}/>
+            </>}
+            {/* Column ops */}
+            {!isComputed && (
+              <div className={s.colCtxItem} onClick={() => { startRenameCol(col, { stopPropagation: () => {} }); close() }}>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 9h10M7.5 2.5l2 2L4 10H2V8l5.5-5.5z"/></svg>
+                Rename
+              </div>
+            )}
+            {isComputed && (
+              <div className={s.colCtxItem} onClick={() => { onEditComputedCol?.(col); close() }}>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7.5 2.5l2 2L4 10H2V8l5.5-5.5z"/></svg>
+                Edit formula
+              </div>
+            )}
+            {!isComputed && (
+              <div className={s.colCtxItem} onClick={() => { togglePin(colVisIdx); close() }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 2L14 6.5l-2 2-1.5-.5-2 2 .5 1.5-1.5 1.5-3-3-3 3-1-1 3-3-3-3 1.5-1.5 1.5.5 2-2L9.5 2z"/></svg>
+                {isPinned ? 'Unfreeze column' : 'Freeze column'}
+                {isPinned && <span className={s.colCtxCheck}>✓</span>}
+              </div>
+            )}
+            {/* Format section — numeric only */}
+            {!isComputed && ct === 'numeric' && <>
+              <div className={s.colCtxSep}/>
+              <div className={s.colCtxLabel}>Number format</div>
+              {NUM_FMTS.map(f => (
+                <div
+                  key={String(f.key)}
+                  className={s.colCtxItem + (activeFmt === f.key ? ' ' + s.colCtxItemOn : '')}
+                  onClick={() => { setNumFormat(col, f.key); close() }}
+                >
+                  <span>{f.label}</span>
+                  <span className={s.colCtxEx}>{f.example}</span>
+                </div>
+              ))}
+              <div className={s.colCtxSep}/>
+              <div className={s.colCtxItem + (scaleOn ? ' ' + s.colCtxItemOn : '')} onClick={() => { toggleColScale(col); close() }}>
+                <svg width="10" height="8" viewBox="0 0 22 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="2" fill="url(#csg)" stroke="none"/><defs><linearGradient id="csg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.7"/></linearGradient></defs></svg>
+                Color scale
+                {scaleOn && <span className={s.colCtxCheck}>✓</span>}
+              </div>
+              <div className={s.colCtxItem + (hasThresh ? ' ' + s.colCtxItemOn : '')} onClick={() => { openThresholdModal(col); close() }}>
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 7h12M7 1l3 6-3 6"/></svg>
+                {hasThresh ? 'Edit highlight rule…' : 'Highlight rule…'}
+              </div>
+              {hasThresh && (
+                <div className={s.colCtxItem} onClick={() => { clearThresholdRule(col); close() }}>
+                  Clear highlight rule
+                </div>
+              )}
+            </>}
+            <div className={s.colCtxSep}/>
+            <div className={s.colCtxItem} onClick={() => { hideCol(col); close() }}>
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z"/><circle cx="8" cy="8" r="2"/><path d="M2 2l12 12" strokeWidth="1.8"/></svg>
+              Hide column
+            </div>
+            {!isComputed && (
+              <div className={s.colCtxItemDanger} onClick={() => { deleteColFn(col); close() }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 5h10M6 5V3h4v2M6 8v5M10 8v5"/><rect x="4" y="5" width="8" height="8" rx="1"/></svg>
+                Delete column
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Threshold rule modal ── */}
       {thresholdModal && (
