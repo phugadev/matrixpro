@@ -33,128 +33,94 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 ## Features
 
 ### Datasets
-- Import `.csv` and `.tsv` files via drag & drop or **⌘O**
-- **Paste-to-import** — copy a CSV or TSV table from any app (Excel, Google Sheets, etc.) and paste directly into Matrix Pro to create a new dataset instantly
+- Import `.csv` / `.tsv` via drag & drop, **⌘O**, or paste from clipboard (Excel, Sheets, etc.)
 - 4 built-in sample datasets (CA Housing, World Population, Sales '23, Tech Stocks)
-- **Create blank datasets from scratch** — define column names and types upfront via the **+** button
-- 5 column types: **Text · Number · Date · Boolean · Category** — auto-detected on import, overridable per column
-- Closing a dataset hides it — it stays in the sidebar and can be reopened
-- **Duplicate** any dataset via the ⋯ menu in the toolbar — creates a full copy as a new tab
-- **Change dataset colour** — click the colour dot in the toolbar to pick from 10 palette swatches; persists to SQLite
-- Rename and delete via the ⋯ menu in the toolbar
-- **Cross-dataset joins** — join two open datasets on a shared key column (inner / left / right); result opens as a new tab
-- **Export CSV / JSON** — exports only visible (non-hidden) rows and columns respecting active filters; **⌘E** for CSV
-- Datasets, saved graphs, and workspace assignments are persisted to SQLite on Electron
+- **Create blank datasets** — define column names + types via **+** button
+- 5 column types: **Text · Number · Date · Boolean · Category** — auto-detected, overridable
+- Duplicate, rename, delete, close/reopen via the **⋯** toolbar menu
+- **Change dataset colour** — click the colour dot in the toolbar
+- **Cross-dataset joins** — inner / left / right on a shared key column → new tab
+- **Export CSV** (**⌘E**) or JSON — visible rows/cols only, respects active filters
+- All data persisted to SQLite; restored on next launch
 
 ### Workspaces
-- Organise datasets into named workspace groups in the sidebar
-- Create a workspace with **+ New workspace** at the bottom of the sidebar
-- Collapse or expand each workspace section
-- **⋯** menu on each workspace: inline rename or delete (datasets fall back to Uncategorized on delete)
-- Move any dataset to a workspace via the folder icon that appears on hover
-- Workspaces and assignments survive app restarts — stored in SQLite alongside datasets
+- Organise datasets into named groups; collapse/expand sections
+- **⋯** menu on each workspace: rename or delete (datasets fall back to Uncategorized)
+- Move any dataset to a workspace via the hover folder icon
 
-### Table view
-- Virtualised rendering — only visible rows are in the DOM; handles large datasets without slowdown
-- Formatted numbers, date parsing, and categorical value pills
-- Row and column count always visible in the toolbar stat pill; hidden columns shown as `N / total cols`
-- **Inline cell editing** — double-click any cell to edit; Tab / Enter to move to the next cell, Esc to cancel
-- **Keyboard navigation** — arrow keys to move the focused cell; Enter / F2 to enter edit mode; Delete / Backspace to clear; ⌘↵ to add a row
-- **Column reordering** — drag any column header left or right to reorder; order persists to the dataset
-- **Column resizing** — drag the right edge of any header
-- **Freeze columns** — hover a column header and click the pin icon to freeze that column (and everything to its left); frozen columns stay fixed during horizontal scroll with a visual separator
-- **Multi-sort** — click ⇅ to sort by a column; Shift+click to add more sort keys; priority indicators (↑¹ ↓²) show order; Shift+click a sorted column again to flip direction or remove it from the sort stack
-- **Column rename** — double-click any column header label to rename it inline; all rows, types, and widths update automatically
-- **Column type override** — click the type badge (T / # / D / B / C) in any column header to cycle through types
-- **Undo / Redo** (**⌘Z** / **⌘⇧Z**) — unified 50-step history per dataset covering cell edits, row changes, and column operations (rename, reorder, freeze, type change)
-- **Conditional formatting** — hover a numeric column header and click the gradient icon to apply a colour-scale background (low → transparent, high → indigo); click again to turn off; replaces the bar-chart overlay for a cleaner heatmap view
-- **Find & Replace** — **⌘F** to find (prev/next with Shift+Enter / Enter); **⌘H** to open replace panel; Replace current or Replace All with full undo support; matching cells highlighted amber, active match outlined
-- Numeric columns reject non-numeric input with a shake animation
-- Add rows with **⌘↵** or the footer button; delete rows by hovering the row number and clicking ×
-- Category columns auto-assign distinct colours to each unique value
-- Boolean columns render as green/red pills
-- **Row selection** — click the row index to select a row; Shift+click for range select; ⌘+click to toggle; ⌘A to select all visible rows
-- **Bulk actions** — duplicate, copy as TSV to clipboard, or delete selected rows from the action bar
-- Active filters shown as chips with one-click removal
-- Column visibility toggle — hide/show individual columns via the toolbar; search by name for wide datasets
-- Group & aggregate — create a new summarised dataset by category
+### Table view (⌘1)
+- Virtualised rendering — handles large datasets without slowdown
+- **Inline cell editing** — double-click; Tab/Enter to move; ⌘↵ to add a row
+- **Keyboard navigation** — arrow keys, Enter/F2 to edit, Delete/Backspace to clear
+- **Column operations** — drag to reorder, drag right edge to resize, double-click label to rename
+- **Multi-sort** — click ⇅; Shift+click to stack sort keys with priority indicators (↑¹ ↓²)
+- **Row selection** — click index (single), Shift+click (range), ⌘+click (toggle), ⌘A (all)
+- **Bulk actions** — duplicate, copy as TSV, or delete selected rows
+- **Undo / Redo** (**⌘Z / ⌘⇧Z**) — 50-step history per dataset
+- **Find** (**⌘F**) and **Find & Replace** (**⌘H**) with match highlighting and full undo
+- **Column context menu** (right-click any header):
+  - Sort A→Z / Z→A, Rename, Freeze/Unfreeze
+  - **Format** (numeric cols): Number format (Auto/Integer/1dp/2dp/Currency/Percent/Scientific), Color scale heatmap, Highlight rule (threshold with colour picker)
+  - Hide column, Delete column (undoable)
+- Category columns auto-assign distinct colour pills; boolean columns render green/red pills
 
 ### Filters & Stats (⌘\\)
-- **Numeric filters** — range sliders with min/max bounds per column
-- **Category filters** — checkbox list for each unique value
-- **Date filters** — year and month multi-select plus an optional date range
-- **Text / Regex filters** — Contains · Starts with · Ends with · Regex modes, with optional case-sensitive toggle; regex mode uses a monospace input and shows inline error messages
-- **Saved filter sets** — save the current combination of active filters as a named set; reload or delete saved sets at any time; filters are fully serialisable (survive reloads and cross-session use)
-- Active filter chips shown in the table toolbar for quick removal
-- **Stats panel** — per-column statistics cards showing type, value count, completeness bar, and (for numeric columns) a mini 16-bucket distribution histogram coloured by the active palette
+- **Filters** — Numeric range, Category checkboxes, Date (year/month + range), Text/Regex (Contains / Starts with / Ends with / Regex + case-sensitive)
+- **Saved filter sets** — save, reload, or delete named filter combinations
+- Active filter chips in the toolbar for quick removal
+- **Stats panel** — per-column cards with type, count, % missing, unique count, completeness bar, 16-bucket histogram; numeric columns show mode and IQR outlier count; category columns show top values + overflow count
 
-### Graph view
-- 9 chart types: Bar, Line, Area, Stacked, Scatter, Bubble, Doughnut, Radar, Polar
-- Bar charts support vertical and horizontal orientation
-- Dual Y-axis: categorical Y2 → grouped multi-series bars; numeric Y2 → line overlay on second axis
-- 4 colour palettes, grid toggle, smooth curves toggle
-- Export any chart as PNG
-- Save and reload named graph configurations per dataset
+### Graph view (⌘2)
+- 9 chart types: Bar (horiz/vert), Line, Area, Stacked, Scatter, Bubble, Doughnut, Radar, Polar
+- Dual Y-axis: categorical Y2 → grouped bars; numeric Y2 → line overlay on second axis
+- 4 colour palettes, grid/smooth/labels toggles, PNG export
+- **Save named graph configurations** (**⌘S**) per dataset
+
+### Dashboard (⌘5)
+- Displays all saved graphs for the active dataset in a responsive card grid
+- Each card renders a live `ChartCanvas` at 240px height with hover PNG export
+- Empty state prompts to save graphs from Graph view
 
 ### Pivot Table (⌘4)
-- Drag-free axis configuration — click **+ Add** to assign columns to **Rows**, **Columns**, and **Values** wells
-- **Columns** axis cross-tabulates by unique values of the selected field (e.g. one column per Quarter), capped at 50 distinct values
-- **Values** support 5 aggregation functions: Sum · Avg · Count · Min · Max — switchable per field via inline selector
-- Two-level header when a Column axis is active — top row groups value columns by source field, second row shows the pivot values
-- **Grand Total** row always visible at the bottom
-- **Open as Dataset** — materialises the pivot result as a new tab for further analysis, export, or charting
-- Pivot config persists when switching between views; resets automatically when switching datasets
+- Assign columns to **Rows**, **Columns**, and **Values** wells via **+ Add**
+- Values support Sum / Avg / Count / Min / Max — switchable per field
+- Grand Total row always visible; two-level header when Column axis is active
+- **Export CSV** — downloads pivot result directly
+- **Open as Dataset** — materialises the pivot as a new tab
 
 ### SQL Editor (⌘3)
-- Full in-browser SQL powered by sql.js (WebAssembly)
-- Every open dataset is automatically loaded as a queryable table
-- Cross-dataset `JOIN`s supported
-- Schema sidebar with collapsible tables and column type badges — click any name to insert it
-- `⌘↵` to run · Tab to indent · results show row count and execution time
-- **Open as dataset** — turn any query result into a new tab
+- Full in-browser SQL via sql.js (WebAssembly); every open dataset auto-loaded as a table
+- Cross-dataset JOINs; schema sidebar; `⌘↵` to run; **Open as dataset**
 
 ### AI Insights
-- Connects to a locally-running Ollama instance to generate chart suggestions for the active dataset
-- Works fully offline without Ollama — shows a retry prompt if unavailable
+- Connects to a locally-running Ollama instance to generate chart suggestions (fully optional)
 
 ---
 
 ## Keyboard shortcuts
 
-| Shortcut | Action                                    |
-|----------|-------------------------------------------|
-| ⌘O       | Open dataset file                         |
-| Paste    | Import clipboard CSV/TSV as new dataset   |
-| ⌃Tab     | Next open dataset                         |
-| ⌃⇧Tab    | Previous open dataset                     |
-| ⌘1       | Table view                                |
-| ⌘2       | Graph view                                |
-| ⌘3       | SQL Editor                                |
-| ⌘4       | Pivot table view                          |
-| ⌘\\      | Toggle filter panel                       |
-| ⌘F       | Find in table                             |
-| ⌘H       | Find & Replace                            |
-| ⌘Z           | Undo last edit / column operation              |
-| ⌘⇧Z          | Redo                                           |
-| ⌘↵           | Add row (table view) · Run query (SQL)         |
-| ⌘A           | Select all visible rows                        |
-| ⌘S           | Save current graph                             |
-| ⌘E           | Export CSV                                     |
-| Shift+click ⇅ | Add column to multi-sort (or flip/remove)     |
-| Esc          | Close modal / cancel edit / clear selection    |
+| Shortcut | Action |
+|----------|--------|
+| ⌘O | Open dataset file |
+| Paste | Import clipboard CSV/TSV as new dataset |
+| ⌃Tab / ⌃⇧Tab | Next / previous open dataset |
+| ⌘1 – ⌘5 | Table / Graph / SQL / Pivot / Dashboard |
+| ⌘\\ | Toggle filter panel |
+| ⌘F / ⌘H | Find / Find & Replace |
+| ⌘Z / ⌘⇧Z | Undo / Redo |
+| ⌘↵ | Add row (table) · Run query (SQL) |
+| ⌘A | Select all visible rows |
+| ⌘S | Save current graph |
+| ⌘E | Export CSV |
+| Esc | Close modal / cancel edit / clear selection |
 
 ---
 
 ## Ollama AI Insights
 
 ```bash
-# Install Ollama
-brew install ollama          # macOS
-# or https://ollama.com
-
-# Pull a model
-ollama pull llama3.2         # recommended
-
+brew install ollama          # or https://ollama.com
+ollama pull llama3.2
 # Ollama auto-starts on localhost:11434
 ```
 
@@ -164,12 +130,10 @@ Click **Generate** in the Graph → AI Insights panel.
 
 ## Data persistence
 
-All app data is stored in a single SQLite file:
-
 | Platform | Location |
 |----------|----------|
-| macOS    | `~/Library/Application Support/matrix-pro/matrix-pro.db` |
-| Windows  | `%APPDATA%\matrix-pro\matrix-pro.db` |
-| Linux    | `~/.config/matrix-pro/matrix-pro.db` |
+| macOS | `~/Library/Application Support/matrix-pro/matrix-pro.db` |
+| Windows | `%APPDATA%\matrix-pro\matrix-pro.db` |
+| Linux | `~/.config/matrix-pro/matrix-pro.db` |
 
-The database stores datasets (rows, columns, open/close state), saved graph configurations, and workspace definitions and assignments. Everything is restored automatically on next launch. Deleting all datasets returns the app to the Welcome screen.
+Stores datasets, saved graphs, column formats, number formats, and workspace assignments. Fully restored on next launch.
