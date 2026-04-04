@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useApp } from '../store/AppContext'
-import { fmtCell, fmtN, detectColType, buildCatColorMap, parseDate, fmtDate, parseNumeric, evalFormula } from '../lib/data'
+import { fmtCell, fmtN, applyNumFmt, getColRules, detectColType, buildCatColorMap, parseDate, fmtDate, parseNumeric, evalFormula } from '../lib/data'
 import { PALETTES, COL_TYPES, COL_TYPE_ORDER } from '../lib/constants'
 import s from './DataTable.module.css'
 
@@ -172,12 +172,60 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     return out
   }, [ds, pal, colTypes])
 
-  // Toggle color-scale conditional formatting for a column
-  const toggleColScale = useCallback((col) => {
-    const cur = ds.colFormats || {}
-    const next = cur[col] === 'scale' ? { ...cur, [col]: undefined } : { ...cur, [col]: 'scale' }
+  // Toggle / set conditional formatting rules
+  const setColRules = useCallback((col, rules) => {
+    const cur  = ds.colFormats || {}
+    const next = rules.length ? { ...cur, [col]: rules } : Object.fromEntries(Object.entries(cur).filter(([k]) => k !== col))
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { colFormats: next } })
   }, [ds.colFormats, ds.id, dispatch])
+
+  const toggleColScale = useCallback((col) => {
+    const rules    = getColRules(ds, col)
+    const hasScale = rules.some(r => r.type === 'scale')
+    setColRules(col, hasScale ? rules.filter(r => r.type !== 'scale') : [...rules, { type: 'scale' }])
+  }, [ds, setColRules])
+
+  const [thresholdModal, setThresholdModal] = useState(null) // { col } | null
+  const [threshOp,  setThreshOp]  = useState('>')
+  const [threshVal, setThreshVal] = useState('')
+  const [threshColor, setThreshColor] = useState('#ef4444')
+
+  const openThresholdModal = useCallback((col) => {
+    const existing = getColRules(ds, col).find(r => r.type === 'threshold')
+    setThreshOp(existing?.op ?? '>')
+    setThreshVal(existing?.val != null ? String(existing.val) : '')
+    setThreshColor(existing?.color ?? '#ef4444')
+    setThresholdModal({ col })
+  }, [ds])
+
+  const saveThresholdRule = useCallback(() => {
+    if (!thresholdModal) return
+    const { col } = thresholdModal
+    const val = parseFloat(threshVal)
+    if (isNaN(val)) { setThresholdModal(null); return }
+    const rules = getColRules(ds, col).filter(r => r.type !== 'threshold')
+    setColRules(col, [...rules, { type: 'threshold', op: threshOp, val, color: threshColor }])
+    setThresholdModal(null)
+  }, [thresholdModal, threshOp, threshVal, threshColor, ds, setColRules])
+
+  const clearThresholdRule = useCallback((col) => {
+    setColRules(col, getColRules(ds, col).filter(r => r.type !== 'threshold'))
+  }, [ds, setColRules])
+
+  // Per-column number format picker
+  const [numFmtOpen, setNumFmtOpen] = useState(null) // col name | null
+  useEffect(() => {
+    if (!numFmtOpen) return
+    const h = e => { if (!e.target.closest('[data-numfmt]')) setNumFmtOpen(null) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [numFmtOpen])
+  const setNumFormat = useCallback((col, fmt) => {
+    const cur = ds.numberFormats || {}
+    const next = fmt ? { ...cur, [col]: fmt } : Object.fromEntries(Object.entries(cur).filter(([k]) => k !== col))
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { numberFormats: next } })
+    setNumFmtOpen(null)
+  }, [ds.numberFormats, ds.id, dispatch])
 
   // ── Column rename ─────────────────────────────────────────────────────────────
   const [renamingCol, setRenamingCol] = useState(null)
@@ -957,19 +1005,71 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                       <div className={s.thMeta}>
                         {metaEl}
                         {!isComputed && ct === 'numeric' && (() => {
-                          const scaleOn = (ds.colFormats || {})[col] === 'scale'
+                          const colRulesH    = getColRules(ds, col)
+                          const scaleOn      = colRulesH.some(r => r.type === 'scale')
+                          const hasThreshold = colRulesH.some(r => r.type === 'threshold')
+                          const activeFmt    = (ds.numberFormats || {})[col] || null
+                          const fmtOpen  = numFmtOpen === col
+                          const NUM_FMTS = [
+                            { key: null,         label: 'Auto',       example: '1.5k' },
+                            { key: 'int',        label: 'Integer',    example: '1,234' },
+                            { key: 'fixed1',     label: '1 decimal',  example: '1,234.5' },
+                            { key: 'fixed2',     label: '2 decimals', example: '1,234.56' },
+                            { key: 'currency',   label: 'Currency',   example: '$1,234' },
+                            { key: 'percent',    label: 'Percent',    example: '42.3%' },
+                            { key: 'scientific', label: 'Scientific', example: '1.23e+2' },
+                          ]
                           return (
-                            <button
-                              className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
-                              onMouseDown={e => e.stopPropagation()}
-                              onClick={e => { e.stopPropagation(); toggleColScale(col) }}
-                              title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
-                            >
-                              <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
-                                <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
-                              </svg>
-                            </button>
+                            <>
+                              <button
+                                data-numfmt={col}
+                                className={s.numFmtBtn + (activeFmt ? ' ' + s.numFmtBtnOn : '')}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); setNumFmtOpen(fmtOpen ? null : col) }}
+                                title={activeFmt ? `Format: ${activeFmt} — click to change` : 'Set number format'}
+                              >
+                                <svg width="10" height="9" viewBox="0 0 20 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                  <text x="0" y="12" fontSize="13" fontFamily="monospace" fill="currentColor" stroke="none">123</text>
+                                </svg>
+                              </button>
+                              {fmtOpen && (
+                                <div data-numfmt={col} className={s.numFmtMenu}>
+                                  {NUM_FMTS.map(f => (
+                                    <div
+                                      key={String(f.key)}
+                                      className={s.numFmtItem + (activeFmt === f.key ? ' ' + s.numFmtItemOn : '')}
+                                      onMouseDown={e => e.stopPropagation()}
+                                      onClick={e => { e.stopPropagation(); setNumFormat(col, f.key) }}
+                                    >
+                                      <span>{f.label}</span>
+                                      <span className={s.numFmtEx}>{f.example}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <button
+                                className={s.threshBtn + (hasThreshold ? ' ' + s.threshBtnOn : '')}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); hasThreshold ? clearThresholdRule(col) : openThresholdModal(col) }}
+                                onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openThresholdModal(col) }}
+                                title={hasThreshold ? 'Threshold rule active — right-click to edit · click to clear' : 'Add threshold highlight rule'}
+                              >
+                                <svg width="9" height="9" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                  <path d="M1 7h12M7 1l3 6-3 6"/>
+                                </svg>
+                              </button>
+                              <button
+                                className={s.scaleBtn + (scaleOn ? ' ' + s.scaleBtnOn : '')}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); toggleColScale(col) }}
+                                title={scaleOn ? 'Color scale on — click to disable' : 'Enable color scale'}
+                              >
+                                <svg width="11" height="9" viewBox="0 0 22 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                  <rect x="1" y="1" width="20" height="12" rx="2" fill="url(#sg)" stroke="none"/>
+                                  <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="currentColor" stopOpacity="0.1"/><stop offset="100%" stopColor="currentColor" stopOpacity="0.6"/></linearGradient></defs>
+                                </svg>
+                              </button>
+                            </>
                           )
                         })()}
                         {!isComputed && (
@@ -1070,13 +1170,29 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                   {visibleCols.map((col, colVisIdx) => {
                     const isComputed   = colTypes[col] === 'computed'
                     const rawVal       = isComputed ? evalFormula(ds.computedCols[col].formula, row) : row[col]
-                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col])
+                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col], (ds.numberFormats || {})[col])
                     const nm           = numMax[col]
                     const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
-                    const scaleOn      = (ds.colFormats || {})[col] === 'scale'
+                    const colRules     = getColRules(ds, col)
+                    const scaleRule    = colRules.find(r => r.type === 'scale')
+                    const scaleOn      = !!scaleRule
                     const scaleAlpha   = scaleOn && nm && nm.maxRaw !== nm.minRaw
                       ? (parseNumeric(rawVal) - nm.minRaw) / (nm.maxRaw - nm.minRaw)
                       : null
+                    // Threshold rule: highlight cell if condition matches
+                    const threshRule   = colRules.find(r => r.type === 'threshold')
+                    let threshBg = null
+                    if (threshRule) {
+                      const n = parseNumeric(rawVal)
+                      const v = threshRule.val
+                      const match =
+                        threshRule.op === '>'  ? n > v  :
+                        threshRule.op === '>=' ? n >= v :
+                        threshRule.op === '<'  ? n < v  :
+                        threshRule.op === '<=' ? n <= v :
+                        threshRule.op === '='  ? n === v : false
+                      if (match && !isNaN(n)) threshBg = threshRule.color + '33' // 20% alpha
+                    }
                     const isEditCell   = !isComputed && isEditRow && editingCell?.col === col
                     const isFocused    = !isEditCell && focusedCell?.rowIdx === i && focusedCell?.colIdx === colVisIdx
                     const activeMatch  = matches[matchIdx]
@@ -1087,12 +1203,12 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                     let scaleBg = null
                     if (scaleAlpha !== null && !isNaN(scaleAlpha)) {
                       const t = Math.max(0, Math.min(1, scaleAlpha))
-                      // white → palette colour
                       scaleBg = `rgba(99,102,241,${(t * 0.55).toFixed(3)})`
                     }
                     const tdStyle = {
                       ...(isPinnedCol ? { position: 'sticky', left: pinnedLeftOffsets[col] } : {}),
                       ...(isComputed   ? { background: 'rgba(251,146,60,.04)' } : {}),
+                      ...(threshBg     ? { background: threshBg } : {}),
                       ...(scaleBg      ? { background: scaleBg } : {}),
                     }
                     return (
@@ -1190,6 +1306,50 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
               <path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/>
             </svg>
           </button>
+        </div>
+      )}
+
+      {/* ── Threshold rule modal ── */}
+      {thresholdModal && (
+        <div className={s.modalOverlay} onMouseDown={() => setThresholdModal(null)}>
+          <div className={s.threshModal} onMouseDown={e => e.stopPropagation()}>
+            <div className={s.threshModalHd}>
+              Highlight rule · <b>{thresholdModal.col}</b>
+            </div>
+            <div className={s.threshModalBody}>
+              <div className={s.threshRow}>
+                <select className={s.threshOpSel} value={threshOp} onChange={e => setThreshOp(e.target.value)}>
+                  <option value=">">{'>'} Greater than</option>
+                  <option value=">=">{'>='} Greater or equal</option>
+                  <option value="<">{'<'} Less than</option>
+                  <option value="<=">{'<='} Less or equal</option>
+                  <option value="=">{'='} Equal to</option>
+                </select>
+                <input
+                  className={s.threshValInput}
+                  type="number"
+                  value={threshVal}
+                  onChange={e => setThreshVal(e.target.value)}
+                  placeholder="Value"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') saveThresholdRule(); if (e.key === 'Escape') setThresholdModal(null) }}
+                />
+              </div>
+              <div className={s.threshColors}>
+                {['#ef4444','#f97316','#eab308','#22c55e','#6366f1','#ec4899'].map(c => (
+                  <button key={c} className={s.threshColorChip + (threshColor === c ? ' ' + s.threshColorOn : '')}
+                    style={{ background: c }} onClick={() => setThreshColor(c)} />
+                ))}
+              </div>
+              <div className={s.threshPreview} style={{ background: threshColor + '33', borderColor: threshColor }}>
+                Preview: cells matching rule
+              </div>
+            </div>
+            <div className={s.threshModalFt}>
+              <button className={s.threshCancelBtn} onClick={() => setThresholdModal(null)}>Cancel</button>
+              <button className={s.threshSaveBtn} onClick={saveThresholdRule} disabled={!threshVal}>Apply</button>
+            </div>
+          </div>
         </div>
       )}
 

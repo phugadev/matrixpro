@@ -254,12 +254,15 @@
 .statComplete    { height: 2px; background: var(--bg5); }
 .statCompleteBar { height: 100%; border-radius: 0 1px 1px 0; transition: width .3s ease; }
 .statName { flex: 1; font-size: 12px; font-weight: 500; color: var(--tx1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.statMeta { font-size: 10px; color: var(--tx3); font-family: var(--m); flex-shrink: 0; }
+.statMeta    { font-size: 10px; color: var(--tx3); font-family: var(--m); flex-shrink: 0; }
+.statUnique  { font-size: 10px; color: var(--tx3); font-family: var(--m); flex-shrink: 0; }
 .statMissing { font-size: 9.5px; color: #fda4af; font-family: var(--m); flex-shrink: 0; }
 .statBody { padding: 8px 10px 10px; background: var(--bg2); border-top: 1px solid var(--bd1); }
 
 /* Categorical stats bars */
 .catStatList    { display: flex; flex-direction: column; gap: 5px; }
+.catUnique      { font-size: 10px; color: var(--tx3); margin-bottom: 4px; }
+.catMore        { font-size: 10px; color: var(--tx3); margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--bd1); }
 .catStatRow     { display: flex; align-items: center; gap: 7px; }
 .catStatName    { font-size: 11px; color: var(--tx1); width: 72px; min-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .catStatBarWrap { flex: 1; height: 5px; background: var(--bg5); border-radius: 3px; overflow: hidden; }

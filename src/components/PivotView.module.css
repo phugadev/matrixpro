@@ -186,8 +186,13 @@
   color: var(--tx3);
 }
 
-.openBtn {
+.exportRow {
+  display: flex;
+  gap: 6px;
   margin: 0 14px 14px;
+}
+.openBtn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,6 +209,20 @@
 }
 .openBtn:hover:not(:disabled) { background: var(--ac); color: #fff; }
 .openBtn:disabled { opacity: .35; cursor: not-allowed; }
+
+.csvBtn {
+  padding: 8px 11px;
+  background: var(--bg3);
+  border: 1px solid var(--bd2);
+  border-radius: var(--r);
+  color: var(--tx2);
+  font: 500 11px/1 var(--m);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--ease);
+}
+.csvBtn:hover:not(:disabled) { background: var(--bg4); color: var(--tx1); }
+.csvBtn:disabled { opacity: .35; cursor: not-allowed; }
 
 /* ─── Grid area ───────────────────────────────────────────────────────────── */
 .gridWrap {

@@ -66,7 +66,7 @@ function makeY2Dataset (label, data, primaryIsBar, pal, tension) {
 }
 
 // ─── Build chart datasets ─────────────────────────────────────────────────────
-function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn = 'sum', smoothCurves = true }) {
+export function buildChartData ({ ds, xCol, yCol, y2Col, szCol, ct, pal, filters, aggFn = 'sum', smoothCurves = true }) {
   if (!xCol || !yCol) return null
 
   const allRows = Object.values(filters).reduce((acc, fn) => acc.filter(fn), ds.rows)

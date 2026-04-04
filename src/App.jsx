@@ -6,7 +6,8 @@ import Titlebar   from './components/Titlebar'
 import Toolbar    from './components/Toolbar'
 import DataTable  from './components/DataTable'
 import ChartView  from './components/ChartView'
-import PivotView  from './components/PivotView'
+import PivotView      from './components/PivotView'
+import DashboardView  from './components/DashboardView'
 import { lazy, Suspense } from 'react'
 const SqlEditor = lazy(() => import('./components/SqlEditor'))
 import Panel      from './components/Panel'
@@ -119,7 +120,7 @@ function Inner () {
       if (!persistedIds.current.has(t.id)) {
         persistedIds.current.add(t.id)
         openStates.current.set(t.id, true)
-        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null }).catch(() => {})
+        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null, colFormats: t.colFormats ?? null, numberFormats: t.numberFormats ?? null }).catch(() => {})
       }
     })
   }, [state.tabs])
@@ -130,7 +131,7 @@ function Inner () {
     if (!isElectron) return
     state.tabs.forEach(t => {
       if (persistedIds.current.has(t.id)) {
-        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null }).catch(() => {})
+        window.MP.db.upsertDataset({ id: t.id, name: t.name, color: t.color, cols: t.cols, rows: t.rows, workspaceId: t.workspaceId ?? null, pinnedTypes: t.pinnedTypes ?? null, computedCols: t.computedCols ?? null, colFormats: t.colFormats ?? null, numberFormats: t.numberFormats ?? null }).catch(() => {})
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +160,7 @@ function Inner () {
     if (!isElectron || !ds) return
     clearTimeout(rowSaveTimer.current)
     rowSaveTimer.current = setTimeout(() => {
-      window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
+      window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null, colFormats: ds.colFormats ?? null, numberFormats: ds.numberFormats ?? null }).catch(() => {})
     }, 800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ds?.rows, ds?.pinnedTypes, ds?.computedCols])
@@ -221,6 +222,7 @@ function Inner () {
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'graph' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'sql' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'pivot' }) }
+      if ((e.metaKey || e.ctrlKey) && e.key === '5') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'dashboard' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); dispatch({ type: 'TOGGLE_PANEL' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === 's' && state.view === 'graph') { e.preventDefault(); openSaveModal() }
       if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); doExportCSV() }
@@ -256,7 +258,7 @@ function Inner () {
       const newDs = makeDS('Pasted data', res.data, state.tabs.length)
       newDs.cols = res.meta.fields.filter(c => c && c.trim())
       addTab(newDs)
-      if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
+      if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
       toast(`Pasted ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '📋')
     }
     document.addEventListener('paste', handler)
@@ -296,7 +298,7 @@ function Inner () {
     const newDs = makeDS(filename.replace(/\.[^.]+$/, ''), res.data, state.tabs.length)
     newDs.cols = (res.meta.fields || []).filter(c => c && c.trim())
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
     toast(`Loaded ${newDs.rows.length.toLocaleString()} rows`, '📂')
   }, [state.tabs.length, addTab, toast])
 
@@ -352,8 +354,8 @@ function Inner () {
   }, [ds, toast])
 
   // ── Export PNG ──────────────────────────────────────────────────────────────
-  const doExportPNG = useCallback(async (dataURL) => {
-    const name = (graphName || 'graph').replace(/\s+/g, '_') + '.png'
+  const doExportPNG = useCallback(async (dataURL, titleOverride) => {
+    const name = (titleOverride || graphName || 'graph').replace(/\s+/g, '_') + '.png'
     if (isElectron) {
       await window.MP.savePNG({ defaultName: name, dataURL })
       toast('PNG exported', '⬇')
@@ -412,7 +414,7 @@ function Inner () {
     newDs.pinnedTypes = ds.pinnedTypes ? { ...ds.pinnedTypes } : null
     newDs.workspaceId = ds.workspaceId ?? null
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: newDs.workspaceId, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: newDs.computedCols ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: newDs.workspaceId, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: newDs.computedCols ?? null, colFormats: newDs.colFormats ?? null, numberFormats: newDs.numberFormats ?? null }).catch(() => {})
     toast(`Duplicated "${ds.name}"`, '⎘')
   }, [ds, state.tabs.length, addTab, toast])
 
@@ -420,7 +422,7 @@ function Inner () {
   const changeColor = useCallback((color) => {
     if (!ds) return
     updateDS(ds.id, { color })
-    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: ds.name, color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null, colFormats: ds.colFormats ?? null, numberFormats: ds.numberFormats ?? null }).catch(() => {})
   }, [ds, updateDS])
 
   // ── Rename dataset ──────────────────────────────────────────────────────────
@@ -431,7 +433,7 @@ function Inner () {
   const confirmRename = useCallback(() => {
     if (!ds || !renameName.trim()) return
     updateDS(ds.id, { name: renameName.trim() })
-    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: renameName.trim(), color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: ds.id, name: renameName.trim(), color: ds.color, cols: ds.cols, rows: ds.rows, workspaceId: ds.workspaceId ?? null, pinnedTypes: ds.pinnedTypes ?? null, computedCols: ds.computedCols ?? null, colFormats: ds.colFormats ?? null, numberFormats: ds.numberFormats ?? null }).catch(() => {})
     setRenameModal(false)
     toast(`Renamed to "${renameName.trim()}"`, '✎')
   }, [ds, renameName, updateDS, toast])
@@ -474,7 +476,7 @@ function Inner () {
     })
     const newDs = makeDS(`${ds.name} (by ${groupBy})`, newRows, state.tabs.length)
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
     setGroupModal(false)
     toast(`Grouped by "${groupBy}" — ${groupFn}`, '⬡')
   }, [ds, groupBy, groupFn, state.tabs.length, addTab, toast])
@@ -616,7 +618,7 @@ function Inner () {
       return out
     })
     addTab(resultDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: resultDs.id, name: resultDs.name, color: resultDs.color, cols: resultDs.cols, rows: resultDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: resultDs.id, name: resultDs.name, color: resultDs.color, cols: resultDs.cols, rows: resultDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
     toast(`Joined — ${newRows.length} rows`, '⋈')
     setJoinModal(false)
   }, [ds, state.tabs, joinRightId, joinKeyCol, joinType, addTab, toast])
@@ -684,7 +686,7 @@ function Inner () {
     const name = `${ds.name} (Pivot)`
     const newDs = makeDS(name, rows, state.tabs.length)
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
     dispatch({ type: 'SET_VIEW', view: 'table' })
     toast(`Opened as "${name}"`, '✓')
   }, [ds, state.tabs.length, addTab, dispatch, toast])
@@ -697,7 +699,7 @@ function Inner () {
     newDs.rows        = []
     newDs.pinnedTypes = Object.fromEntries(cols.map(c => [c.name, c.type]))
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: null }).catch(() => {})
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: newDs.pinnedTypes ?? null, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
     toast(`Created "${name}"`, '✓')
   }, [state.tabs.length, addTab, toast])
 
@@ -729,8 +731,9 @@ function Inner () {
 
             <div className={s.content}>
               <div className={s.center}>
-                {state.view === 'table' && <DataTable ds={ds} onAddComputedCol={openAddComputedCol} onEditComputedCol={openEditComputedCol} />}
-                {state.view === 'pivot' && <PivotView ds={ds} onOpenAsDataset={openPivotAsDataset} />}
+                {state.view === 'table'     && <DataTable ds={ds} onAddComputedCol={openAddComputedCol} onEditComputedCol={openEditComputedCol} />}
+                {state.view === 'pivot'     && <PivotView ds={ds} onOpenAsDataset={openPivotAsDataset} />}
+                {state.view === 'dashboard' && <DashboardView ds={ds} onExportPNG={(dataURL, title) => doExportPNG(dataURL, title)} />}
                 {state.view === 'graph' && (
                   <ChartView
                     ds={ds}
@@ -747,7 +750,7 @@ function Inner () {
                   </SqlBoundary>
                 )}
               </div>
-              {state.view !== 'sql' && state.view !== 'pivot' && (
+              {state.view !== 'sql' && state.view !== 'pivot' && state.view !== 'dashboard' && (
                 <Panel
                   ds={ds}
                   onFilterAdd={addFilter}

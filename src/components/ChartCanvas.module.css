@@ -1,0 +1,18 @@
+.wrap    { position: relative; width: 100%; }
+.wrap canvas { width: 100% !important; height: 100% !important; }
+
+.empty {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; background: var(--bg3); border-radius: 8px;
+  font-size: 11px; color: var(--tx3);
+}
+
+.exportBtn {
+  position: absolute; top: 6px; right: 6px;
+  display: none;
+  padding: 4px; background: var(--bg3); border: 1px solid var(--bd2);
+  border-radius: 5px; color: var(--tx3); cursor: pointer;
+  transition: color .1s, background .1s;
+}
+.wrap:hover .exportBtn { display: flex; align-items: center; justify-content: center; }
+.exportBtn:hover { color: var(--tx1); background: var(--bg4); }

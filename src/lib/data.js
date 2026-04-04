@@ -13,6 +13,28 @@ export function fmtN (n) {
   return Number.isInteger(n) ? n.toLocaleString() : parseFloat(n).toFixed(2)
 }
 
+// Coerce colFormats[col] to a normalized array of rule objects.
+// Supports old string 'scale' for backward compat.
+export function getColRules (ds, col) {
+  const v = (ds.colFormats || {})[col]
+  if (!v) return []
+  if (typeof v === 'string') return [{ type: v }]  // 'scale' → [{type:'scale'}]
+  return Array.isArray(v) ? v : [v]
+}
+
+// Per-column number format specs: 'int' | 'fixed1' | 'fixed2' | 'currency' | 'percent' | 'scientific'
+export function applyNumFmt (n, fmt) {
+  switch (fmt) {
+    case 'int':        return Math.round(n).toLocaleString()
+    case 'fixed1':     return n.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    case 'fixed2':     return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    case 'currency':   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+    case 'percent':    return parseFloat(n).toFixed(1) + '%'
+    case 'scientific': return n.toExponential(2)
+    default:           return fmtN(n)
+  }
+}
+
 // Build a { value → { color, bg } } map for a category column.
 // Values are sorted alphabetically so the assignment is deterministic regardless of row order.
 // Using positional assignment (not hashing) means no two distinct values share a color.
@@ -26,7 +48,7 @@ export function buildCatColorMap (uniqueValues) {
   return map
 }
 
-export function fmtCell (v, colType, catColorMap) {
+export function fmtCell (v, colType, catColorMap, numFmt) {
   if (v === undefined || v === null || v === '') return '—'
   if (colType === 'boolean') {
     const isTrue = /^(true|yes)$/i.test(String(v).trim())
@@ -41,7 +63,7 @@ export function fmtCell (v, colType, catColorMap) {
   }
   if (colType === 'date') return { type: 'date', label: fmtDate(v) }
   const n = parseNumeric(v)
-  if (!isNaN(n) && String(v).trim() !== '') return { type: 'num', label: fmtN(n) }
+  if (!isNaN(n) && String(v).trim() !== '') return { type: 'num', label: numFmt ? applyNumFmt(n, numFmt) : fmtN(n) }
   return { type: 'text', label: String(v) }
 }
 
@@ -191,6 +213,7 @@ export function makeDS (name, rows, existingTabCount = 0) {
     filterSpecs:     {},
     savedFilterSets: [],
     colFormats:      {},   // { [col]: 'scale' } — conditional formatting
+    numberFormats:   {},   // { [col]: 'int'|'fixed1'|'fixed2'|'currency'|'percent'|'scientific' }
     savedGraphs:     [],
     color:           PALETTES[0][existingTabCount % PALETTES[0].length],
   }

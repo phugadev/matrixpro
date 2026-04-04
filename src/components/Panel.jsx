@@ -667,6 +667,18 @@ function NumericStats ({ vals, pal }) {
   const std    = Math.sqrt(nums.reduce((a, b) => a + (b - mean) ** 2, 0) / n)
   const mn = sorted[0], mx = sorted[n - 1]
 
+  // Mode (most frequent value)
+  const freq = {}
+  nums.forEach(v => { freq[v] = (freq[v] || 0) + 1 })
+  const maxFreq = Math.max(...Object.values(freq))
+  const mode = +Object.keys(freq).find(k => freq[k] === maxFreq)
+
+  // IQR outlier count
+  const iqr = q3 - q1
+  const outliersLo = sorted.filter(v => v < q1 - 1.5 * iqr).length
+  const outliersHi = sorted.filter(v => v > q3 + 1.5 * iqr).length
+  const outlierCnt = outliersLo + outliersHi
+
   // Mini distribution histogram
   const B  = 16
   const bw = (mx - mn) / B || 1
@@ -679,6 +691,7 @@ function NumericStats ({ vals, pal }) {
     ['Mean',   mean],  ['Median', median],
     ['Q1',     q1],    ['Q3',   q3],
     ['Std dev', std],  ['Sum',  sum],
+    ['Mode',   mode],  ['Outliers', outlierCnt],
   ]
   return (
     <>
@@ -705,10 +718,13 @@ function NumericStats ({ vals, pal }) {
 function CatStats ({ vals, total }) {
   const cnt = {}
   vals.forEach(v => { cnt[v] = (cnt[v] || 0) + 1 })
-  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 6)
-  const max = top[0]?.[1] || 1
+  const entries = Object.entries(cnt).sort((a, b) => b[1] - a[1])
+  const top  = entries.slice(0, 6)
+  const more = entries.length - 6
+  const max  = top[0]?.[1] || 1
   return (
     <div className={s.catStatList}>
+      <div className={s.catUnique}>{entries.length.toLocaleString()} unique</div>
       {top.map(([v, c]) => (
         <div key={v} className={s.catStatRow}>
           <span className={s.catStatName}>{v}</span>
@@ -718,6 +734,7 @@ function CatStats ({ vals, total }) {
           <span className={s.catStatCnt}>{c} · {((c / total) * 100).toFixed(1)}%</span>
         </div>
       ))}
+      {more > 0 && <div className={s.catMore}>+{more.toLocaleString()} more values</div>}
     </div>
   )
 }
@@ -787,16 +804,19 @@ function StatCard ({ col, ds, pal }) {
   const allVals    = ds.rows.map(r => r[col])
   const nonNull    = allVals.filter(v => v !== undefined && v !== null && v !== '')
   const missingCnt = allVals.length - nonNull.length
+  const missingPct = allVals.length ? ((missingCnt / allVals.length) * 100).toFixed(1) : 0
   const fillPct    = allVals.length ? (nonNull.length / allVals.length) * 100 : 100
   const colType    = detectColType(ds, col)
   const meta       = COL_TYPES[colType] || COL_TYPES.text
+  const uniqueCnt  = new Set(nonNull.map(v => String(v))).size
   return (
     <div className={s.statCard}>
       <div className={s.statHd}>
         <span className={s.typeBadge} style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
         <span className={s.statName}>{col}</span>
-        <span className={s.statMeta}>{nonNull.length.toLocaleString()}</span>
-        {missingCnt > 0 && <span className={s.statMissing}>{missingCnt} null</span>}
+        <span className={s.statMeta}>{nonNull.length.toLocaleString()} rows</span>
+        <span className={s.statUnique}>{uniqueCnt.toLocaleString()} unique</span>
+        {missingCnt > 0 && <span className={s.statMissing}>{missingCnt} null · {missingPct}%</span>}
       </div>
       {/* Completeness bar */}
       <div className={s.statComplete}>

@@ -177,8 +177,9 @@ export default function PivotView({ ds, onOpenAsDataset }) {
   }, [pivot, sortKey, sortDir, rowFields])
 
   const handleSort = key => {
-    if (sortKey === key) setSortDir(d => -d)
-    else { setSortKey(key); setSortDir(-1) }
+    if (sortKey !== key) { setSortKey(key); setSortDir(-1) }          // first click: desc
+    else if (sortDir === -1) setSortDir(1)                            // second click: asc
+    else { setSortKey(null); setSortDir(-1) }                        // third click: clear
   }
 
   const addRow      = useCallback(col => setRowFields([...rowFields, col]), [rowFields, setRowFields])
@@ -193,8 +194,8 @@ export default function PivotView({ ds, onOpenAsDataset }) {
     if (val && rowFields.includes(val)) setRowFields(rowFields.filter(c => c !== val))
   }, [setColField, rowFields, setRowFields])
 
-  const handleOpenAsDataset = useCallback(() => {
-    if (!pivot || !sortedRows.length) return
+  const buildExportRows = useCallback(() => {
+    if (!pivot || !sortedRows.length) return null
     const { valCols } = pivot
     const exportColNames = valCols.map(vc =>
       vc.isTotal        ? `${vc.vfCol} [Total]`
@@ -207,8 +208,29 @@ export default function PivotView({ ds, onOpenAsDataset }) {
       valCols.forEach((vc, i) => { out[exportColNames[i]] = r[vc.key] })
       return out
     })
-    onOpenAsDataset(rows)
-  }, [pivot, sortedRows, rowFields, onOpenAsDataset])
+    return { rows, headers: [...rowFields, ...exportColNames], valCols }
+  }, [pivot, sortedRows, rowFields])
+
+  const handleOpenAsDataset = useCallback(() => {
+    const result = buildExportRows()
+    if (result) onOpenAsDataset(result.rows)
+  }, [buildExportRows, onOpenAsDataset])
+
+  const handleExportCSV = useCallback(() => {
+    const result = buildExportRows()
+    if (!result) return
+    const { rows, headers } = result
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [
+      headers.map(esc).join(','),
+      ...rows.map(r => headers.map(h => esc(r[h])).join(','))
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `${ds.name}-pivot.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }, [buildExportRows, ds.name])
 
   // ── Header rendering ──────────────────────────────────────────────────────
   const renderHeader = () => {
@@ -403,13 +425,19 @@ export default function PivotView({ ds, onOpenAsDataset }) {
           </div>
         )}
 
-        <button className={s.openBtn} disabled={!canOpen} onClick={handleOpenAsDataset}
-          title="Materialise pivot result as a new dataset tab">
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6z"/><path d="M9 2v4h4"/>
-          </svg>
-          Open as Dataset
-        </button>
+        <div className={s.exportRow}>
+          <button className={s.openBtn} disabled={!canOpen} onClick={handleOpenAsDataset}
+            title="Materialise pivot result as a new dataset tab">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6z"/><path d="M9 2v4h4"/>
+            </svg>
+            Open as Dataset
+          </button>
+          <button className={s.csvBtn} disabled={!canOpen} onClick={handleExportCSV}
+            title="Export pivot as CSV file">
+            CSV
+          </button>
+        </div>
 
       </div>
 
@@ -422,6 +450,14 @@ export default function PivotView({ ds, onOpenAsDataset }) {
             </svg>
             <div className={s.emptyTitle}>Configure your pivot</div>
             <div className={s.emptySub}>Add row fields and values to get started</div>
+          </div>
+        ) : sortedRows.length === 0 ? (
+          <div className={s.emptyState}>
+            <svg className={s.emptyIcon} width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
+              <circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>
+            </svg>
+            <div className={s.emptyTitle}>No rows to display</div>
+            <div className={s.emptySub}>All source rows were filtered or collapsed</div>
           </div>
         ) : (
           <div className={s.tableWrap}>
