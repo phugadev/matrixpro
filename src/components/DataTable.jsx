@@ -230,6 +230,8 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
 
   // ── Column context menu ──────────────────────────────────────────────────────
   const [colCtxMenu, setColCtxMenu] = useState(null) // { col, x, y } | null
+  const [fillNullsModal, setFillNullsModal] = useState(null) // { col } | null
+  const [fillNullsVal,   setFillNullsVal]   = useState('')
   useEffect(() => {
     if (!colCtxMenu) return
     const h = e => { if (!e.target.closest('[data-colctx]')) setColCtxMenu(null) }
@@ -258,6 +260,45 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     const nf = { ...(ds.numberFormats || {}) }; delete nf[col]
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { cols: newCols, pinnedTypes: pt, hiddenCols: hc, colWidths: cw, colFormats: cf, numberFormats: nf } })
   }, [ds, dispatch])
+
+  // ── Data cleaning ─────────────────────────────────────────────────────────────
+  const cleanCol = useCallback((col, fn) => {
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
+    const rows = ds.rows.map(r => ({ ...r, [col]: fn(r[col]) }))
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows } })
+  }, [ds, dispatch])
+
+  const trimWhitespace = useCallback(col => {
+    cleanCol(col, v => (v != null && v !== '') ? String(v).trim() : v)
+  }, [cleanCol])
+
+  const normalizeCase = useCallback((col, mode) => {
+    cleanCol(col, v => {
+      if (v == null || v === '') return v
+      const s = String(v)
+      if (mode === 'upper') return s.toUpperCase()
+      if (mode === 'lower') return s.toLowerCase()
+      return s.replace(/\b\w/g, c => c.toUpperCase())
+    })
+  }, [cleanCol])
+
+  const fillNullsForward = useCallback(col => {
+    dispatch({ type: 'PUSH_ACTION', dsId: ds.id, data: { rows: ds.rows } })
+    let last = null
+    const rows = ds.rows.map(r => {
+      const v = r[col]
+      if (v != null && v !== '') { last = v; return r }
+      return last != null ? { ...r, [col]: last } : r
+    })
+    dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { rows } })
+  }, [ds, dispatch])
+
+  const commitFillNullsWithValue = useCallback(() => {
+    if (!fillNullsModal) return
+    cleanCol(fillNullsModal.col, v => (v == null || v === '') ? fillNullsVal : v)
+    setFillNullsModal(null)
+    setFillNullsVal('')
+  }, [fillNullsModal, fillNullsVal, cleanCol])
 
   // ── Column rename ─────────────────────────────────────────────────────────────
   const [renamingCol, setRenamingCol] = useState(null)
@@ -1272,8 +1313,9 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
         const hasThresh  = colRules.some(r => r.type === 'threshold')
         const activeFmt  = (ds.numberFormats || {})[col] || null
         const close      = () => setColCtxMenu(null)
+        const isTextCol  = ct === 'text' || ct === 'category'
         const menuX      = Math.min(x, window.innerWidth  - 230)
-        const menuY      = Math.min(y, window.innerHeight - 420)
+        const menuY      = Math.min(y, window.innerHeight - (ct === 'numeric' ? 620 : isTextCol ? 540 : 480))
         return (
           <div
             data-colctx
@@ -1343,6 +1385,37 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                 </div>
               )}
             </>}
+            {/* Clean section */}
+            {!isComputed && <>
+              <div className={s.colCtxSep}/>
+              <div className={s.colCtxLabel}>Clean</div>
+              {isTextCol && <>
+                <div className={s.colCtxItem} onClick={() => { trimWhitespace(col); close() }}>
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 4h10M2 7h7M2 10h5"/></svg>
+                  Trim whitespace
+                </div>
+                <div className={s.colCtxItem} onClick={() => { normalizeCase(col, 'upper'); close() }}>
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 10L5 4l3 6M3.5 8h3M9 4v6M11 4v6"/></svg>
+                  To UPPERCASE
+                </div>
+                <div className={s.colCtxItem} onClick={() => { normalizeCase(col, 'lower'); close() }}>
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 10L5 4l3 6M3.5 8h3M9 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9 4v2"/></svg>
+                  To lowercase
+                </div>
+                <div className={s.colCtxItem} onClick={() => { normalizeCase(col, 'title'); close() }}>
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 10L5 4l3 6M3.5 8h3M11 4v6"/></svg>
+                  To Title Case
+                </div>
+              </>}
+              <div className={s.colCtxItem} onClick={() => { fillNullsForward(col); close() }}>
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 2v10M4 9l3 3 3-3"/></svg>
+                Fill nulls forward
+              </div>
+              <div className={s.colCtxItem} onClick={() => { setFillNullsVal(''); setFillNullsModal({ col }); close() }}>
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 7h6M11 7h1M6 4l3 3-3 3"/></svg>
+                Fill nulls with…
+              </div>
+            </>}
             <div className={s.colCtxSep}/>
             <div className={s.colCtxItem} onClick={() => { hideCol(col); close() }}>
               <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z"/><circle cx="8" cy="8" r="2"/><path d="M2 2l12 12" strokeWidth="1.8"/></svg>
@@ -1397,6 +1470,32 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
             <div className={s.threshModalFt}>
               <button className={s.threshCancelBtn} onClick={() => setThresholdModal(null)}>Cancel</button>
               <button className={s.threshSaveBtn} onClick={saveThresholdRule} disabled={!threshVal}>Apply</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Fill nulls with value modal ── */}
+      {fillNullsModal && (
+        <div className={s.modalOverlay} onMouseDown={() => setFillNullsModal(null)}>
+          <div className={s.threshModal} onMouseDown={e => e.stopPropagation()}>
+            <div className={s.threshModalHd}>
+              Fill nulls · <b>{fillNullsModal.col}</b>
+            </div>
+            <div className={s.threshModalBody}>
+              <input
+                className={s.threshValInput}
+                style={{ width: '100%' }}
+                value={fillNullsVal}
+                onChange={e => setFillNullsVal(e.target.value)}
+                placeholder="Replacement value"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') commitFillNullsWithValue(); if (e.key === 'Escape') setFillNullsModal(null) }}
+              />
+            </div>
+            <div className={s.threshModalFt}>
+              <button className={s.threshCancelBtn} onClick={() => setFillNullsModal(null)}>Cancel</button>
+              <button className={s.threshSaveBtn} onClick={commitFillNullsWithValue}>Apply</button>
             </div>
           </div>
         </div>

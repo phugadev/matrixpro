@@ -61,6 +61,8 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - **Column context menu** (right-click any header):
   - Sort A→Z / Z→A, Rename, Freeze/Unfreeze
   - **Format** (numeric cols): Number format (Auto/Integer/1dp/2dp/Currency/Percent/Scientific), Color scale heatmap, Highlight rule (threshold with colour picker)
+  - **Clean** (all cols): Fill nulls forward, Fill nulls with value
+  - **Clean** (text/category cols): Trim whitespace, To UPPERCASE / lowercase / Title Case
   - Hide column, Delete column (undoable)
 - Category columns auto-assign distinct colour pills; boolean columns render green/red pills
 

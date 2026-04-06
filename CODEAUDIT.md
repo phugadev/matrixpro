@@ -1,7 +1,7 @@
 # CODEAUDIT.md — Matrix Pro
 
 > **Living document.** Update whenever a significant feature is added or removed.
-> Last updated: 2026-04-04
+> Last updated: 2026-04-06
 
 ---
 
@@ -36,6 +36,8 @@
 - [x] **Column context menu** (right-click header):
   - Sort A→Z/Z→A, Rename, Freeze/Unfreeze, Edit formula (computed)
   - **Format** (numeric only): Number format picker (7 options), Color scale toggle, Highlight rule modal (threshold op/val/colour), Clear highlight rule
+  - **Clean** (all non-computed): Fill nulls forward, Fill nulls with value (modal)
+  - **Clean** (text/category only): Trim whitespace, To UPPERCASE/lowercase/Title Case
   - Hide column, Delete column (undoable via ⌘Z)
 - [x] **Number formatting** — per-column via `numberFormats[col]`; `applyNumFmt(n, fmt)` in `data.js`; options: auto/int/fixed1/fixed2/currency/percent/scientific
 - [x] **Color-scale heatmap** — stored as `colFormats[col] = [{type:'scale'}]`; `getColRules(ds,col)` coerces old string value for backward compat
