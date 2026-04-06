@@ -33,7 +33,9 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 ## Features
 
 ### Datasets
-- Import `.csv` / `.tsv` via drag & drop, **⌘O**, or paste from clipboard (Excel, Sheets, etc.)
+- Import **CSV / TSV** via drag & drop, **⌘O**, or paste from clipboard (Excel, Sheets, etc.)
+- Import **Excel (.xlsx / .xls)** via drag & drop or **⌘O** — first sheet is loaded automatically
+- Import **from URL** — paste a public link to a CSV, TSV, JSON, or XLSX file (via **New dataset → From URL**)
 - 4 built-in sample datasets (CA Housing, World Population, Sales '23, Tech Stocks)
 - **Create blank datasets** — define column names + types via **+** button
 - 5 column types: **Text · Number · Date · Boolean · Category** — auto-detected, overridable

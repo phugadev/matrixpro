@@ -3,6 +3,8 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
 const path  = require('path')
 const fs    = require('fs')
+const https = require('https')
+const http  = require('http')
 const isDev = !app.isPackaged
 
 app.setName('Matrix Pro')
@@ -189,11 +191,32 @@ ipcMain.handle('db:deleteGraph', (_, id) => {
 ipcMain.handle('dialog:openFile', async () => {
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
-    filters:    [{ name: 'Data Files', extensions: ['csv', 'tsv', 'txt'] }],
+    filters:    [{ name: 'Data Files', extensions: ['csv', 'tsv', 'txt', 'xlsx', 'xls'] }],
   })
   if (res.canceled || !res.filePaths.length) return null
-  const fp = res.filePaths[0]
+  const fp  = res.filePaths[0]
+  const ext = path.extname(fp).slice(1).toLowerCase()
+  if (ext === 'xlsx' || ext === 'xls') {
+    const buf = fs.readFileSync(fp)
+    return { name: path.basename(fp), buffer: buf.toString('base64'), binary: true }
+  }
   return { name: path.basename(fp), content: fs.readFileSync(fp, 'utf-8') }
+})
+
+ipcMain.handle('dialog:fetchUrl', (_, url) => {
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith('https') ? https : http
+    lib.get(url, { headers: { 'User-Agent': 'MatrixPro/2.0' } }, res => {
+      const chunks = []
+      res.on('data', c => chunks.push(c))
+      res.on('end', () => resolve({
+        ok:          res.statusCode >= 200 && res.statusCode < 300,
+        status:      res.statusCode,
+        contentType: res.headers['content-type'] || '',
+        buffer:      Buffer.concat(chunks).toString('base64'),
+      }))
+    }).on('error', e => reject(e))
+  })
 })
 
 ipcMain.handle('dialog:saveCSV', async (_, { defaultName, content }) => {

@@ -10,7 +10,7 @@ const SAMPLES = [
 ]
 
 // ─── Step 1: choose method ────────────────────────────────────────────────────
-function ChooseStep ({ onSample, onUpload, onScratch }) {
+function ChooseStep ({ onSample, onUpload, onImportUrl, onScratch }) {
   return (
     <>
       <div className={s.hd}>
@@ -42,6 +42,15 @@ function ChooseStep ({ onSample, onUpload, onScratch }) {
           <div>
             <div className={s.actionTitle}>Upload from file</div>
             <div className={s.actionSub}>Load a local dataset</div>
+          </div>
+        </div>
+        <div className={s.actionCard} onClick={onImportUrl}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2a9 9 0 010 12M8 2a9 9 0 000 12"/>
+          </svg>
+          <div>
+            <div className={s.actionTitle}>Import from URL</div>
+            <div className={s.actionSub}>CSV, TSV, JSON or XLSX link</div>
           </div>
         </div>
         <div className={s.actionCard} onClick={onScratch}>
@@ -162,7 +171,7 @@ function ScratchStep ({ onBack, onCreate }) {
 }
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
-export default function NewDatasetModal ({ initialStep = 'choose', onClose, onSample, onUpload, onCreate }) {
+export default function NewDatasetModal ({ initialStep = 'choose', onClose, onSample, onUpload, onImportUrl, onCreate }) {
   const [step, setStep] = useState(initialStep)
 
   // Close on Escape
@@ -186,6 +195,7 @@ export default function NewDatasetModal ({ initialStep = 'choose', onClose, onSa
           <ChooseStep
             onSample={key => { onSample(key); onClose() }}
             onUpload={() => { onUpload(); onClose() }}
+            onImportUrl={() => { onImportUrl?.(); onClose() }}
             onScratch={() => setStep('scratch')}
           />
         ) : (

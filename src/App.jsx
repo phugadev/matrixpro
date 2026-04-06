@@ -17,6 +17,7 @@ import NewDatasetModal from './components/NewDatasetModal'
 import s          from './App.module.css'
 import { makeDS, isNumericCol, evalFormula, specToFn, uid } from './lib/data'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 
 const isElectron = !!window.MP
 
@@ -274,9 +275,15 @@ function Inner () {
     const drop  = e => {
       e.preventDefault(); dropCount.current = 0; setDropping(false)
       const f = e.dataTransfer.files[0]; if (!f) return
+      const ext = f.name.split('.').pop().toLowerCase()
       const reader = new FileReader()
-      reader.onload = ev => parseAndAdd(ev.target.result, f.name)
-      reader.readAsText(f)
+      if (ext === 'xlsx' || ext === 'xls') {
+        reader.onload = ev => parseXlsx(ev.target.result, f.name)
+        reader.readAsArrayBuffer(f)
+      } else {
+        reader.onload = ev => parseAndAdd(ev.target.result, f.name)
+        reader.readAsText(f)
+      }
     }
     document.addEventListener('dragenter',  enter)
     document.addEventListener('dragleave',  leave)
@@ -291,6 +298,10 @@ function Inner () {
   }, [])
 
   // ── File parse ──────────────────────────────────────────────────────────────
+  const persistDs = useCallback((newDs) => {
+    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, workspaceId: null, pinnedTypes: null, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
+  }, [])
+
   const parseAndAdd = useCallback((text, filename) => {
     const ext = filename.split('.').pop().toLowerCase()
     const res = Papa.parse(text, { header: true, skipEmptyLines: true, delimiter: ext === 'tsv' ? '\t' : ',', dynamicTyping: false })
@@ -298,25 +309,105 @@ function Inner () {
     const newDs = makeDS(filename.replace(/\.[^.]+$/, ''), res.data, state.tabs.length)
     newDs.cols = (res.meta.fields || []).filter(c => c && c.trim())
     addTab(newDs)
-    if (isElectron) window.MP.db.upsertDataset({ id: newDs.id, name: newDs.name, color: newDs.color, cols: newDs.cols, rows: newDs.rows, computedCols: null, colFormats: null, numberFormats: null }).catch(() => {})
-    toast(`Loaded ${newDs.rows.length.toLocaleString()} rows`, '📂')
-  }, [state.tabs.length, addTab, toast])
+    persistDs(newDs)
+    toast(`Loaded ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '📂')
+  }, [state.tabs.length, addTab, toast, persistDs])
+
+  const parseXlsx = useCallback((buffer, filename, type = 'array') => {
+    try {
+      const wb   = XLSX.read(buffer, { type })
+      const ws   = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+      if (!rows.length) { toast('Empty or unreadable spreadsheet', '⚠'); return }
+      const newDs = makeDS(filename.replace(/\.[^.]+$/, ''), rows, state.tabs.length)
+      newDs.cols = Object.keys(rows[0]).map(String).filter(c => c.trim())
+      addTab(newDs)
+      persistDs(newDs)
+      toast(`Loaded ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '📊')
+    } catch { toast('Could not parse spreadsheet', '⚠') }
+  }, [state.tabs.length, addTab, toast, persistDs])
 
   const triggerUpload = useCallback(async () => {
     if (isElectron) {
       const r = await window.MP.openFile()
-      if (r) parseAndAdd(r.content, r.name)
+      if (!r) return
+      if (r.binary) {
+        const buf = Uint8Array.from(atob(r.buffer), c => c.charCodeAt(0)).buffer
+        parseXlsx(buf, r.name)
+      } else {
+        parseAndAdd(r.content, r.name)
+      }
     } else {
       fileInputRef.current?.click()
     }
-  }, [parseAndAdd])
+  }, [parseAndAdd, parseXlsx])
 
   const handleFileInput = useCallback(e => {
     const f = e.target.files[0]; if (!f) return; e.target.value = ''
+    const ext = f.name.split('.').pop().toLowerCase()
     const reader = new FileReader()
-    reader.onload = ev => parseAndAdd(ev.target.result, f.name)
-    reader.readAsText(f)
-  }, [parseAndAdd])
+    if (ext === 'xlsx' || ext === 'xls') {
+      reader.onload = ev => parseXlsx(ev.target.result, f.name)
+      reader.readAsArrayBuffer(f)
+    } else {
+      reader.onload = ev => parseAndAdd(ev.target.result, f.name)
+      reader.readAsText(f)
+    }
+  }, [parseAndAdd, parseXlsx])
+
+  // ── Import from URL ──────────────────────────────────────────────────────────
+  const [urlModal,   setUrlModal]   = useState(false)
+  const [urlInput,   setUrlInput]   = useState('')
+  const [urlLoading, setUrlLoading] = useState(false)
+
+  const importFromUrl = useCallback(async () => {
+    const url = urlInput.trim()
+    if (!url) return
+    setUrlLoading(true)
+    try {
+      let buffer, contentType = '', ok = true
+      if (isElectron) {
+        const r = await window.MP.fetchUrl(url)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        buffer      = r.buffer  // base64 string
+        contentType = r.contentType
+      } else {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        contentType = res.headers.get('content-type') || ''
+        const ab = await res.arrayBuffer()
+        buffer = ab
+      }
+      const filename = url.split('?')[0].split('/').pop() || 'url-data'
+      const ext      = filename.split('.').pop().toLowerCase()
+      if (ext === 'xlsx' || ext === 'xls') {
+        const type = isElectron ? 'base64' : 'array'
+        parseXlsx(buffer, filename, type)
+      } else if (ext === 'json' || contentType.includes('json')) {
+        const text = isElectron
+          ? atob(buffer)
+          : new TextDecoder().decode(buffer)
+        const json = JSON.parse(text)
+        const rows = Array.isArray(json) ? json
+          : (json.data ?? json.rows ?? Object.values(json)[0])
+        if (!Array.isArray(rows) || !rows.length) throw new Error('No row array found in JSON')
+        const newDs = makeDS(filename.replace(/\.[^.]+$/, '') || 'URL data', rows, state.tabs.length)
+        newDs.cols = Object.keys(rows[0]).map(String).filter(c => c.trim())
+        addTab(newDs); persistDs(newDs)
+        toast(`Loaded ${newDs.rows.length.toLocaleString()} rows · ${newDs.cols.length} columns`, '🌐')
+      } else {
+        const text = isElectron
+          ? atob(buffer)
+          : new TextDecoder().decode(buffer)
+        parseAndAdd(text, filename || 'url-data.csv')
+      }
+      setUrlModal(false); setUrlInput('')
+    } catch (err) {
+      toast(`Failed: ${err.message}`, '⚠')
+    } finally {
+      setUrlLoading(false)
+    }
+  }, [urlInput, parseAndAdd, parseXlsx, addTab, persistDs, toast, state.tabs.length])
 
   // ── Export CSV ──────────────────────────────────────────────────────────────
   const doExportCSV = useCallback(async () => {
@@ -774,7 +865,7 @@ function Inner () {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,.tsv,.txt"
+        accept=".csv,.tsv,.txt,.xlsx,.xls"
         style={{ display: 'none' }}
         onChange={handleFileInput}
       />
@@ -785,8 +876,30 @@ function Inner () {
           onClose={() => setNewModal(false)}
           onSample={key => { addSample(key); setNewModal(false) }}
           onUpload={() => { setNewModal(false); triggerUpload() }}
+          onImportUrl={() => { setNewModal(false); setUrlInput(''); setUrlModal(true) }}
           onCreate={(name, cols) => { createScratch(name, cols); setNewModal(false) }}
         />
+      )}
+
+      {/* Import from URL modal */}
+      {urlModal && (
+        <Modal
+          title="Import from URL"
+          subtitle="Paste a public link to a CSV, TSV, JSON, or XLSX file."
+          onClose={() => { setUrlModal(false); setUrlInput('') }}
+          onConfirm={importFromUrl}
+          confirmLabel={urlLoading ? 'Loading…' : 'Import'}
+        >
+          <input
+            className={s.input}
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !urlLoading && importFromUrl()}
+            placeholder="https://example.com/data.csv"
+            autoFocus
+            disabled={urlLoading}
+          />
+        </Modal>
       )}
 
       {/* Save graph modal */}

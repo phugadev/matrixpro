@@ -10,6 +10,7 @@ const MENU_EVENTS = [
 contextBridge.exposeInMainWorld('MP', {
   resourcesPath: process.resourcesPath,
   openFile: ()     => ipcRenderer.invoke('dialog:openFile'),
+  fetchUrl: (url)  => ipcRenderer.invoke('dialog:fetchUrl', url),
   saveCSV:  (o)    => ipcRenderer.invoke('dialog:saveCSV', o),
   savePNG:  (o)    => ipcRenderer.invoke('dialog:savePNG', o),
 

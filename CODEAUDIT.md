@@ -1,7 +1,7 @@
 # CODEAUDIT.md — Matrix Pro
 
 > **Living document.** Update whenever a significant feature is added or removed.
-> Last updated: 2026-04-06
+> Last updated: 2026-04-06 (xlsx + URL import)
 
 ---
 
@@ -9,6 +9,8 @@
 
 ### Datasets
 - [x] Import CSV/TSV — file picker (`⌘O`), drag-drop, paste from clipboard
+- [x] Import XLSX/XLS — drag-drop, file picker (`⌘O`); Electron reads binary via IPC; web uses FileReader/ArrayBuffer; SheetJS (`xlsx`) parses first sheet
+- [x] Import from URL — modal in NewDatasetModal; supports CSV/TSV/JSON/XLSX; Electron uses `dialog:fetchUrl` IPC (no CORS); web uses `fetch()`
 - [x] 4 built-in sample datasets — CA Housing, World Population, Sales '23, Tech Stocks
 - [x] Create blank dataset — `NewDatasetModal` (define cols + types upfront)
 - [x] Duplicate, rename, delete, close/reopen, change colour
