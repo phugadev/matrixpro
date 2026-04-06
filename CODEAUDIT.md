@@ -35,6 +35,7 @@
 - [x] Row selection — single/range/toggle/all; bulk duplicate, copy TSV, delete
 - [x] Column visibility — Columns menu in toolbar
 - [x] Computed/formula columns — `ƒ` badge; `evalFormula` in `data.js`
+- [x] **Summary footer row** — sticky `<tfoot>` at bottom of scroll area; toggled via Σ button in footer bar; cycles Sum → Avg → Count (click label); respects active filters + search; numeric cols show value with column number format applied; non-numeric cols show count in Count mode only; pinned cols remain sticky
 - [x] **Column context menu** (right-click header):
   - Sort A→Z/Z→A, Rename, Freeze/Unfreeze, Edit formula (computed)
   - **Format** (numeric only): Number format picker (7 options), Color scale toggle, Highlight rule modal (threshold op/val/colour), Clear highlight rule

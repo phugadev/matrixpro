@@ -448,3 +448,22 @@
   transition: all .1s;
 }
 .addRowBtn:hover { background: var(--bg5); color: var(--tx1); border-color: var(--bd3); }
+.summaryToggleOn { background: rgba(99,102,241,.12) !important; color: var(--ac2) !important; border-color: var(--ac) !important; }
+
+/* ── Summary footer row ──────────────────────────────────────────────────── */
+.summaryFoot { position: sticky; bottom: 0; z-index: 3; }
+.summaryFoot tr { background: var(--bg2); }
+.summaryCellLabel {
+  position: sticky; left: 0; z-index: 4;
+  background: var(--bg2); border-top: 2px solid var(--bd2);
+  font: 600 11px/1 var(--m); color: var(--tx2);
+  text-align: center; cursor: pointer; user-select: none;
+  padding: 5px 4px;
+}
+.summaryCellLabel:hover { color: var(--ac2); }
+.summaryCell {
+  background: var(--bg2); border-top: 2px solid var(--bd2);
+  font: 500 11.5px/1 var(--m); color: var(--ac2);
+  text-align: right; padding: 5px 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

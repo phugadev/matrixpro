@@ -228,6 +228,13 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     dispatch({ type: 'UPDATE_DS', id: ds.id, patch: { numberFormats: next } })
   }, [ds.numberFormats, ds.id, dispatch])
 
+  // ── Summary footer row ────────────────────────────────────────────────────────
+  const [summaryVisible, setSummaryVisible] = useState(false)
+  const [summaryMode,    setSummaryMode]    = useState('sum') // 'sum' | 'avg' | 'count'
+  const cycleSummaryMode = useCallback(() => {
+    setSummaryMode(m => m === 'sum' ? 'avg' : m === 'avg' ? 'count' : 'sum')
+  }, [])
+
   // ── Column context menu ──────────────────────────────────────────────────────
   const [colCtxMenu, setColCtxMenu] = useState(null) // { col, x, y } | null
   const [fillNullsModal, setFillNullsModal] = useState(null) // { col } | null
@@ -397,6 +404,29 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     })
     return out
   }, [searchedRows, searchQuery, visibleCols, ds.rows])
+
+  // ── Summary values ────────────────────────────────────────────────────────────
+  const summaryValues = useMemo(() => {
+    if (!summaryVisible) return {}
+    const numFmts = ds.numberFormats || {}
+    const out = {}
+    visibleCols.forEach(col => {
+      const ct    = colTypes[col]
+      const isNum = ct === 'numeric' || ct === 'computed'
+      if (summaryMode === 'count') {
+        out[col] = searchedRows.filter(r => r[col] != null && r[col] !== '').length.toLocaleString()
+        return
+      }
+      if (!isNum) { out[col] = null; return }
+      const nums = searchedRows.map(r => parseNumeric(r[col])).filter(n => !isNaN(n) && isFinite(n))
+      if (!nums.length) { out[col] = '—'; return }
+      const val = summaryMode === 'sum'
+        ? nums.reduce((a, b) => a + b, 0)
+        : nums.reduce((a, b) => a + b, 0) / nums.length
+      out[col] = applyNumFmt(val, numFmts[col] ?? null)
+    })
+    return out
+  }, [summaryVisible, summaryMode, searchedRows, visibleCols, colTypes, ds.numberFormats])
 
   // O(1) lookup for cell highlight
   const matchSet = useMemo(() => {
@@ -1245,6 +1275,32 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
             )}
           </tbody>
 
+          {/* ── Summary footer row ── */}
+          {summaryVisible && ds.rows.length > 0 && (
+            <tfoot className={s.summaryFoot}>
+              <tr>
+                <td className={s.summaryCellLabel} onClick={cycleSummaryMode} title="Click to cycle: Sum → Avg → Count">
+                  {summaryMode === 'sum' ? 'Σ' : summaryMode === 'avg' ? 'x̄' : '#'}
+                </td>
+                {visibleCols.map(col => {
+                  const val = summaryValues[col]
+                  const isPinned  = visibleCols.indexOf(col) < pinnedCount
+                  const isLastPin = visibleCols.indexOf(col) === pinnedCount - 1
+                  return (
+                    <td
+                      key={col}
+                      className={[s.summaryCell, isLastPin ? s.pinnedLast : ''].filter(Boolean).join(' ')}
+                      style={isPinned ? { position: 'sticky', left: pinnedLeftOffsets[col] } : {}}
+                    >
+                      {val ?? ''}
+                    </td>
+                  )
+                })}
+                {onAddComputedCol && <td />}
+              </tr>
+            </tfoot>
+          )}
+
         </table>
 
         {/* ── Empty state ── */}
@@ -1521,6 +1577,11 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
           </>
         )}
         <span className={s.filtered}> · {(endIdx - startIdx).toLocaleString()} rendered</span>
+        <button
+          className={[s.addRowBtn, summaryVisible ? s.summaryToggleOn : ''].filter(Boolean).join(' ')}
+          onClick={() => setSummaryVisible(v => !v)}
+          title="Toggle summary row"
+        >Σ</button>
         <button className={s.addRowBtn} onClick={() => addRow()} title="Add row (⌘↵)">
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M8 3v10M3 8h10"/>

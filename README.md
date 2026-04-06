@@ -66,6 +66,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
   - **Clean** (all cols): Fill nulls forward, Fill nulls with value
   - **Clean** (text/category cols): Trim whitespace, To UPPERCASE / lowercase / Title Case
   - Hide column, Delete column (undoable)
+- **Summary footer row** — click **Σ** in the footer bar to show a sticky summary row; click the row label to cycle Sum / Avg / Count; respects active filters and search
 - Category columns auto-assign distinct colour pills; boolean columns render green/red pills
 
 ### Filters & Stats (⌘\\)
