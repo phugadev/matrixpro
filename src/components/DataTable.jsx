@@ -8,7 +8,6 @@ import s from './DataTable.module.css'
 const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ROW_H     = 32
 const OVERSCAN  = 20
 const MIN_COL_W = 50
 const DEFAULT_COL_W = { numeric: 110, date: 150, boolean: 90, text: 130 }
@@ -113,7 +112,11 @@ function CellEditor ({ initialValue, colType, onCommit, onCancel, onNavigate }) 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function DataTable ({ ds, compact = false, onAddComputedCol, onEditComputedCol }) {
   const { state, dispatch } = useApp()
-  const pal = PALETTES[state.palette]
+  const pal   = PALETTES[state.palette]
+  const rowH  = state.settings?.rowHeight ?? 32
+  const getNumFmt = useCallback(col =>
+    (ds.numberFormats || {})[col] ?? state.settings?.defaultNumFmt ?? null,
+  [ds.numberFormats, state.settings?.defaultNumFmt])
 
   // ── Scroll tracking ──────────────────────────────────────────────────────────
   const scrollRef   = useRef(null)
@@ -408,7 +411,6 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
   // ── Summary values ────────────────────────────────────────────────────────────
   const summaryValues = useMemo(() => {
     if (!summaryVisible) return {}
-    const numFmts = ds.numberFormats || {}
     const out = {}
     visibleCols.forEach(col => {
       const ct    = colTypes[col]
@@ -423,10 +425,10 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
       const val = summaryMode === 'sum'
         ? nums.reduce((a, b) => a + b, 0)
         : nums.reduce((a, b) => a + b, 0) / nums.length
-      out[col] = applyNumFmt(val, numFmts[col] ?? null)
+      out[col] = applyNumFmt(val, getNumFmt(col))
     })
     return out
-  }, [summaryVisible, summaryMode, searchedRows, visibleCols, colTypes, ds.numberFormats])
+  }, [summaryVisible, summaryMode, searchedRows, visibleCols, colTypes, getNumFmt])
 
   // O(1) lookup for cell highlight
   const matchSet = useMemo(() => {
@@ -448,9 +450,9 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
     if (!matches.length || !scrollRef.current) return
     const match = matches[matchIdx]
     if (!match) return
-    const top = match.visualIdx * ROW_H
+    const top = match.visualIdx * rowH
     const el  = scrollRef.current
-    if (top < el.scrollTop || top + ROW_H > el.scrollTop + el.clientHeight) {
+    if (top < el.scrollTop || top + rowH > el.scrollTop + el.clientHeight) {
       el.scrollTo({ top: Math.max(0, top - el.clientHeight / 3), behavior: 'smooth' })
     }
   }, [matchIdx, matches])
@@ -495,11 +497,11 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
   }, [matches, searchQuery, replaceQuery, ds.rows, ds.id, dispatch])
 
   // ── Virtual window ───────────────────────────────────────────────────────────
-  const startIdx    = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
-  const endIdx      = Math.min(searchedRows.length, Math.ceil((scrollTop + viewHeight) / ROW_H) + OVERSCAN)
+  const startIdx    = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN)
+  const endIdx      = Math.min(searchedRows.length, Math.ceil((scrollTop + viewHeight) / rowH) + OVERSCAN)
   const visibleRows = searchedRows.slice(startIdx, endIdx)
-  const topPad      = startIdx * ROW_H
-  const bottomPad   = Math.max(0, (searchedRows.length - endIdx) * ROW_H)
+  const topPad      = startIdx * rowH
+  const bottomPad   = Math.max(0, (searchedRows.length - endIdx) * rowH)
 
   // ── Column resizing ──────────────────────────────────────────────────────────
   const [colWidths,    setColWidths]   = useState(() => ds.colWidths || {})
@@ -828,12 +830,12 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
           setFocusedCell({ rowIdx, colIdx })
           // Scroll the target row into the viewport
           if (scrollRef.current) {
-            const targetTop = rowIdx * ROW_H
+            const targetTop = rowIdx * rowH
             const { scrollTop, clientHeight } = scrollRef.current
             if (targetTop < scrollTop)
               scrollRef.current.scrollTo({ top: targetTop })
-            else if (targetTop + ROW_H > scrollTop + clientHeight)
-              scrollRef.current.scrollTo({ top: targetTop + ROW_H - clientHeight })
+            else if (targetTop + rowH > scrollTop + clientHeight)
+              scrollRef.current.scrollTo({ top: targetTop + rowH - clientHeight })
           }
           return
         }
@@ -966,7 +968,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
         </div>
       )}
 
-      <div className={s.scroll} ref={scrollRef} onScroll={onScroll}>
+      <div className={s.scroll} ref={scrollRef} onScroll={onScroll} style={{ '--row-h': rowH + 'px' }}>
         <table className={s.table}>
 
           {/* ── Column widths ── */}
@@ -1192,7 +1194,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                   {visibleCols.map((col, colVisIdx) => {
                     const isComputed   = colTypes[col] === 'computed'
                     const rawVal       = isComputed ? evalFormula(ds.computedCols[col].formula, row) : row[col]
-                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col], (ds.numberFormats || {})[col])
+                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col], getNumFmt(col))
                     const nm           = numMax[col]
                     const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
                     const colRules     = getColRules(ds, col)

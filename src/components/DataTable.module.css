@@ -62,7 +62,7 @@
 .thMeta b  { color: var(--tx2); font-weight: 500; }
 
 .table td {
-  height: 32px; padding: 0 12px; border-bottom: 1px solid var(--bd1);
+  height: var(--row-h, 32px); padding: 0 12px; border-bottom: 1px solid var(--bd1);
   border-right: 1px solid var(--bd1);
   font-size: 12px; color: var(--tx2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

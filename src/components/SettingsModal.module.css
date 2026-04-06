@@ -1,0 +1,69 @@
+.overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.modal {
+  background: var(--bg2); border: 1px solid var(--bd2); border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5); width: 380px;
+  animation: scaleIn .12s ease; overflow: hidden;
+}
+
+.hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 12px; border-bottom: 1px solid var(--bd1);
+}
+
+.title { font-size: 13px; font-weight: 600; color: var(--tx1); }
+
+.closeBtn {
+  background: none; border: none; color: var(--tx3); cursor: pointer;
+  padding: 4px; border-radius: 4px; display: flex; align-items: center;
+}
+.closeBtn:hover { color: var(--tx1); background: var(--bg4); }
+
+.body { padding: 14px 16px; display: flex; flex-direction: column; gap: 20px; }
+
+.section { display: flex; flex-direction: column; gap: 8px; }
+
+.sectionLabel {
+  font-size: 11px; font-weight: 600; color: var(--tx3);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+
+/* ── Row height segmented control ── */
+.segmented {
+  display: flex; border: 1px solid var(--bd2); border-radius: 7px; overflow: hidden;
+}
+.seg {
+  flex: 1; padding: 6px 0; font-size: 12px; color: var(--tx2);
+  background: var(--bg3); border: none; cursor: pointer;
+  border-right: 1px solid var(--bd2); transition: all .1s;
+}
+.seg:last-child { border-right: none; }
+.seg:hover { background: var(--bg4); color: var(--tx1); }
+.segOn { background: var(--ac) !important; color: #fff !important; font-weight: 600; }
+
+/* ── Number format chips ── */
+.fmtGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+.fmtChip {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--bd2);
+  background: var(--bg3); cursor: pointer; transition: all .1s; min-width: 82px;
+}
+.fmtChip:hover { border-color: var(--ac); background: var(--bg4); }
+.fmtChipOn { border-color: var(--ac) !important; background: rgba(99,102,241,.1) !important; }
+.fmtLabel { font-size: 12px; font-weight: 500; color: var(--tx1); }
+.fmtEx { font: 10.5px/1 var(--m); color: var(--tx3); margin-top: 2px; }
+
+/* ── Palette swatches ── */
+.palRow { display: flex; gap: 8px; }
+.palSwatch {
+  display: flex; gap: 3px; align-items: center;
+  padding: 6px 8px; border-radius: 8px; border: 2px solid transparent;
+  background: var(--bg3); cursor: pointer; transition: all .1s;
+}
+.palSwatch:hover { background: var(--bg4); border-color: var(--bd2); }
+.palSwatchOn { border-color: var(--ac) !important; background: rgba(99,102,241,.08) !important; }
+.palDot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }

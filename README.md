@@ -45,6 +45,11 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 - **Export CSV** (**⌘E**) or JSON — visible rows/cols only, respects active filters
 - All data persisted to SQLite; restored on next launch
 
+### Settings (⌘,)
+- **Row height** — Compact / Default / Comfortable
+- **Default number format** — applied to all numeric columns with no explicit format set
+- **Chart palette** — choose from 4 colour palettes; persists across sessions
+
 ### Workspaces
 - Organise datasets into named groups; collapse/expand sections
 - **⋯** menu on each workspace: rename or delete (datasets fall back to Uncategorized)
@@ -117,6 +122,7 @@ npm run build:linux   # → release/Matrix Pro-2.0.0.AppImage
 | ⌘A | Select all visible rows |
 | ⌘S | Save current graph |
 | ⌘E | Export CSV |
+| ⌘, | Open settings |
 | Esc | Close modal / cancel edit / clear selection |
 
 ---

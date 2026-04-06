@@ -1,7 +1,7 @@
 # CODEAUDIT.md — Matrix Pro
 
 > **Living document.** Update whenever a significant feature is added or removed.
-> Last updated: 2026-04-06 (xlsx + URL import)
+> Last updated: 2026-04-06 (xlsx + URL import + settings modal)
 
 ---
 
@@ -17,6 +17,12 @@
 - [x] Export CSV (`⌘E`) / JSON — visible rows/cols only, respects active filters
 - [x] Cross-dataset join — inner/left/right → new tab
 - [x] Group & aggregate — category grouping → new tab
+
+### App settings (`SettingsModal.jsx`, `⌘,`)
+- [x] **Row height** — Compact (24) / Default (32) / Comfortable (40); stored in `state.settings.rowHeight`; applied via `--row-h` CSS custom property on the scroll container; virtualisation math uses same value
+- [x] **Default number format** — pre-applied to numeric cells/summary row when no column-specific format is set; stored in `state.settings.defaultNumFmt`; chip picker (7 options + Auto)
+- [x] **Chart palette** — surfaces existing `state.palette` via swatch picker; same `SET_PALETTE` action
+- [x] Settings persisted to `localStorage` (`mp-settings`) and restored on mount; separate from SQLite dataset persistence
 
 ### Workspaces
 - [x] Create / rename / delete workspaces; move dataset via hover folder icon
@@ -105,6 +111,7 @@
 | `⌘A` | Select all rows | DataTable |
 | `⌘F / ⌘H` | Find / Replace | DataTable |
 | `⌘\` | Toggle panel | App.jsx |
+| `⌘,` | Settings modal | App.jsx |
 | `⌘1–5` | Table/Graph/SQL/Pivot/Dashboard | App.jsx |
 | `⌃Tab / ⌃⇧Tab` | Next/prev dataset | App.jsx |
 

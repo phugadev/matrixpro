@@ -25,6 +25,7 @@ const init = {
   pivotRowFields:   [],
   pivotColField:    '',
   pivotValueFields: [],
+  settings: { rowHeight: 32, defaultNumFmt: null },
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -131,6 +132,9 @@ function reducer (state, action) {
 
     case 'SET_PIVOT':
       return { ...state, pivotRowFields: action.rowFields, pivotColField: action.colField, pivotValueFields: action.valueFields }
+
+    case 'SET_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.patch } }
 
     case 'RESTORE_TABS': {
       const openTab = [...action.tabs].reverse().find(t => t.open !== false)

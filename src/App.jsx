@@ -14,6 +14,7 @@ import Panel      from './components/Panel'
 import Welcome    from './components/Welcome'
 import Modal      from './components/Modal'
 import NewDatasetModal from './components/NewDatasetModal'
+import SettingsModal  from './components/SettingsModal'
 import s          from './App.module.css'
 import { makeDS, isNumericCol, evalFormula, specToFn, uid } from './lib/data'
 import Papa from 'papaparse'
@@ -60,9 +61,10 @@ function Inner () {
   const { state, dispatch, getDS, addSample, addTab, updateDS } = useApp()
   const toast = useToast()
 
-  const [newModal,    setNewModal]    = useState(false)
-  const [saveModal,   setSaveModal]   = useState(false)
-  const [renameModal, setRenameModal] = useState(false)
+  const [newModal,      setNewModal]      = useState(false)
+  const [saveModal,     setSaveModal]     = useState(false)
+  const [renameModal,   setRenameModal]   = useState(false)
+  const [settingsModal, setSettingsModal] = useState(false)
   const [groupModal,  setGroupModal]  = useState(false)
   const [formulaModal,  setFormulaModal]  = useState(false)
   const [formulaCol,    setFormulaCol]    = useState(null)
@@ -88,6 +90,20 @@ function Inner () {
   const persistedWsIds = useRef(new Set())  // workspace IDs upserted to DB
 
   const ds = getDS()
+
+  // ── Settings: load from localStorage on mount ──────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('mp-settings') || 'null')
+      if (saved) dispatch({ type: 'SET_SETTINGS', patch: saved })
+    } catch {}
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Settings: persist to localStorage on change ────────────────────────────
+  useEffect(() => {
+    if (!state.settings) return
+    localStorage.setItem('mp-settings', JSON.stringify(state.settings))
+  }, [state.settings])
 
   // ── Persistence: restore on mount ──────────────────────────────────────────
   useEffect(() => {
@@ -218,7 +234,8 @@ function Inner () {
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
     const handler = e => {
-      if (e.key === 'Escape') { setNewModal(false); setSaveModal(false); setRenameModal(false); setGroupModal(false) }
+      if (e.key === 'Escape') { setNewModal(false); setSaveModal(false); setRenameModal(false); setGroupModal(false); setSettingsModal(false) }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); setSettingsModal(v => !v) }
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'table' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'graph' }) }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); dispatch({ type: 'SET_VIEW', view: 'sql' }) }
@@ -900,6 +917,11 @@ function Inner () {
             disabled={urlLoading}
           />
         </Modal>
+      )}
+
+      {/* Settings modal */}
+      {settingsModal && (
+        <SettingsModal onClose={() => setSettingsModal(false)} />
       )}
 
       {/* Save graph modal */}
