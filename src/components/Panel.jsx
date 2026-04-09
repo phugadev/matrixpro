@@ -34,10 +34,11 @@ ${colSummary}
 Generate exactly 5 specific, actionable insight suggestions. Rules:
 - Column names in x/y MUST exactly match column names listed above
 - chart must be one of: bar, line, area, scatter, bubble, doughnut, bar-stacked, radar, polar
+- agg must be one of: sum, mean, median, min, max, count (choose what best fits the insight)
 - title max 7 words, desc max 18 words
 - Return ONLY a valid JSON array, no markdown
 
-Format: [{"title":"...","desc":"...","chart":"bar","x":"ColName","y":"ColName","icon":"💡"}]`
+Format: [{"title":"...","desc":"...","chart":"bar","x":"ColName","y":"ColName","agg":"sum","icon":"💡"}]`
 
     try {
       const res = await fetch('http://localhost:11434/api/generate', {
@@ -67,8 +68,24 @@ Format: [{"title":"...","desc":"...","chart":"bar","x":"ColName","y":"ColName","
 
   const apply = useCallback((sug, idx) => {
     setActive(idx)
-    const findCol = name => ds.cols.find(c => c.toLowerCase() === (name || '').toLowerCase()) || name
-    onApply({ ct: sug.chart || 'bar', x: findCol(sug.x), y: findCol(sug.y) })
+    const nums = ds.cols.filter(c => isNumericCol(ds, c))
+    const cats = ds.cols.filter(c => !nums.includes(c))
+    const findCol = (name, fallback) => {
+      const trimmed = (name || '').trim().toLowerCase()
+      return ds.cols.find(c => c.toLowerCase() === trimmed) || fallback
+    }
+    const resolvedY = findCol(sug.y, nums[0] || ds.cols[1] || ds.cols[0] || '')
+    const yIsNumeric = isNumericCol(ds, resolvedY)
+    const validAggs = ['sum', 'mean', 'median', 'min', 'max', 'std', 'var', 'count']
+    const numericOnlyAggs = ['sum', 'mean', 'median', 'min', 'max', 'std', 'var']
+    let agg = validAggs.includes(sug.agg) ? sug.agg : 'sum'
+    if (!yIsNumeric && numericOnlyAggs.includes(agg)) agg = 'count'
+    onApply({
+      ct: sug.chart || 'bar',
+      x: findCol(sug.x, cats[0] || ds.cols[0] || ''),
+      y: resolvedY,
+      agg,
+    })
   }, [ds, onApply])
 
   return (
@@ -947,10 +964,13 @@ function GraphTab ({ ds, onApplySuggestion }) {
 
   return (
     <>
-      <AISuggestions ds={ds} onApply={({ ct, x, y }) => {
+      <AISuggestions ds={ds} onApply={({ ct, x, y, agg }) => {
         dispatch({ type: 'SET_CHART_TYPE', ct })
         dispatch({ type: 'SET_AXIS', which: 'X', value: x })
         dispatch({ type: 'SET_AXIS', which: 'Y', value: y })
+        dispatch({ type: 'SET_AXIS', which: 'Y2', value: '' })
+        dispatch({ type: 'SET_AXIS', which: 'Sz', value: '' })
+        dispatch({ type: 'SET_AGG', fn: agg })
         onApplySuggestion()
       }} />
 

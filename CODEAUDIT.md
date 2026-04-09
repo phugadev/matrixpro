@@ -1,7 +1,7 @@
 # CODEAUDIT.md — Matrix Pro
 
 > **Living document.** Update whenever a significant feature is added or removed.
-> Last updated: 2026-04-06 (xlsx + URL import + settings modal)
+> Last updated: 2026-04-09 (AI Insights preset behavior hardened)
 
 ---
 
@@ -61,7 +61,7 @@
 ### Graph view (`ChartView.jsx`, ⌘2)
 - [x] 9 chart types; dual Y-axis; 4 palettes; grid/smooth/labels toggles; PNG export
 - [x] Save/load named graph configs per dataset (`⌘S`)
-- [x] AI Insights — local Ollama; graceful fallback
+- [x] AI Insights (`Panel.jsx → AISuggestions`) — local Ollama (llama3.2); generates 5 presets; clicking a preset applies: chart type, X/Y axes (case-insensitive match + smart fallback to first cat/numeric col), agg func, and clears Y2 + size axis; non-numeric Y col auto-overrides agg to `count`; prompt includes `agg` field (sum/mean/median/min/max/count); graceful error + timeout UI
 - [x] `buildChartData` is **exported** — consumed by `ChartCanvas.jsx`
 
 ### Dashboard (`DashboardView.jsx`, ⌘5)
