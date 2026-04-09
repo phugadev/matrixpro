@@ -6,11 +6,13 @@ import s from './Panel.module.css'
 
 // ─── AI Suggestions ──────────────────────────────────────────────────────────
 function AISuggestions ({ ds, onApply }) {
+  const { state }              = useApp()
   const [status, setStatus]    = useState('idle')
   const [sugs,   setSugs]      = useState([])
   const [errMsg, setErrMsg]    = useState('')
   const [activeIdx, setActive] = useState(null)
   const abortRef = useRef(null)
+  const ollamaModel = state.settings?.ollamaModel || 'llama3.2'
 
   const run = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort()
@@ -44,7 +46,7 @@ Format: [{"title":"...","desc":"...","chart":"bar","x":"ColName","y":"ColName","
       const res = await fetch('http://localhost:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama3.2', prompt, stream: false }),
+        body: JSON.stringify({ model: ollamaModel, prompt, stream: false }),
         signal: abortRef.current.signal,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -64,7 +66,7 @@ Format: [{"title":"...","desc":"...","chart":"bar","x":"ColName","y":"ColName","
       )
       setStatus('error')
     }
-  }, [ds])
+  }, [ds, ollamaModel])
 
   const apply = useCallback((sug, idx) => {
     setActive(idx)

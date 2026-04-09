@@ -25,7 +25,7 @@ const init = {
   pivotRowFields:   [],
   pivotColField:    '',
   pivotValueFields: [],
-  settings: { rowHeight: 32, defaultNumFmt: null },
+  settings: { rowHeight: 32, defaultNumFmt: null, ollamaModel: 'llama3.2' },
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────

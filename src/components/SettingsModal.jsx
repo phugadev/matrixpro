@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useApp } from '../store/AppContext'
 import { PALETTES } from '../lib/constants'
 import s from './SettingsModal.module.css'
@@ -22,6 +22,9 @@ const ROW_HEIGHTS = [
 export default function SettingsModal ({ onClose }) {
   const { state, dispatch } = useApp()
   const settings = state.settings || {}
+  const [availableModels, setAvailableModels] = useState([])
+  const [modelStatus, setModelStatus]         = useState('idle') // idle | loading | ok | error
+  const [customModel, setCustomModel]         = useState('')
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose() }
@@ -30,6 +33,20 @@ export default function SettingsModal ({ onClose }) {
   }, [onClose])
 
   const set = patch => dispatch({ type: 'SET_SETTINGS', patch })
+
+  const detectModels = useCallback(async () => {
+    setModelStatus('loading')
+    try {
+      const res = await fetch('http://localhost:11434/api/tags')
+      if (!res.ok) throw new Error()
+      const { models } = await res.json()
+      setAvailableModels((models || []).map(m => m.name))
+      setModelStatus('ok')
+    } catch {
+      setAvailableModels([])
+      setModelStatus('error')
+    }
+  }, [])
 
   return (
     <div className={s.overlay} onMouseDown={onClose}>
@@ -96,6 +113,56 @@ export default function SettingsModal ({ onClose }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Ollama model */}
+          <div className={s.section}>
+            <div className={s.sectionLabel}>Ollama model</div>
+            <div className={s.ollamaRow}>
+              <div className={s.ollamaActive}>{settings.ollamaModel || 'llama3.2'}</div>
+              <button className={s.detectBtn} onClick={detectModels} disabled={modelStatus === 'loading'}>
+                {modelStatus === 'loading' ? 'Detecting…' : 'Detect'}
+              </button>
+            </div>
+            {modelStatus === 'error' && (
+              <div className={s.ollamaHint}>Ollama not running. Enter a model name manually:</div>
+            )}
+            {availableModels.length > 0 && (
+              <div className={s.modelList}>
+                {availableModels.map(m => (
+                  <button
+                    key={m}
+                    className={[s.modelChip, settings.ollamaModel === m ? s.modelChipOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => set({ ollamaModel: m })}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(modelStatus === 'error' || modelStatus === 'ok') && (
+              <div className={s.ollamaManual}>
+                <input
+                  className={s.modelInput}
+                  placeholder="e.g. mistral, gemma3, phi4"
+                  value={customModel}
+                  onChange={e => setCustomModel(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && customModel.trim()) {
+                      set({ ollamaModel: customModel.trim() })
+                      setCustomModel('')
+                    }
+                  }}
+                />
+                <button
+                  className={s.detectBtn}
+                  disabled={!customModel.trim()}
+                  onClick={() => { set({ ollamaModel: customModel.trim() }); setCustomModel('') }}
+                >
+                  Set
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

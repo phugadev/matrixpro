@@ -67,3 +67,35 @@
 .palSwatch:hover { background: var(--bg4); border-color: var(--bd2); }
 .palSwatchOn { border-color: var(--ac) !important; background: rgba(99,102,241,.08) !important; }
 .palDot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Ollama model ── */
+.ollamaRow { display: flex; align-items: center; gap: 8px; }
+.ollamaActive {
+  flex: 1; padding: 6px 10px; border-radius: 7px;
+  border: 1px solid var(--bd2); background: var(--bg3);
+  font: 12px/1.4 var(--m); color: var(--tx1); min-height: 30px;
+}
+.detectBtn {
+  padding: 6px 12px; border-radius: 7px; border: 1px solid var(--bd2);
+  background: var(--bg3); color: var(--tx2); font-size: 12px; cursor: pointer;
+  transition: all .1s; white-space: nowrap;
+}
+.detectBtn:hover:not(:disabled) { background: var(--bg4); color: var(--tx1); border-color: var(--ac); }
+.detectBtn:disabled { opacity: .45; cursor: default; }
+.ollamaHint { font-size: 11px; color: var(--tx3); }
+.modelList { display: flex; flex-wrap: wrap; gap: 6px; }
+.modelChip {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--bd2);
+  background: var(--bg3); color: var(--tx2); font: 11.5px/1 var(--m);
+  cursor: pointer; transition: all .1s;
+}
+.modelChip:hover { border-color: var(--ac); color: var(--tx1); background: var(--bg4); }
+.modelChipOn { border-color: var(--ac) !important; background: rgba(99,102,241,.1) !important; color: var(--tx1) !important; }
+.ollamaManual { display: flex; gap: 8px; }
+.modelInput {
+  flex: 1; padding: 6px 10px; border-radius: 7px;
+  border: 1px solid var(--bd2); background: var(--bg3);
+  color: var(--tx1); font-size: 12px; outline: none;
+}
+.modelInput:focus { border-color: var(--ac); }
+.modelInput::placeholder { color: var(--tx3); }
