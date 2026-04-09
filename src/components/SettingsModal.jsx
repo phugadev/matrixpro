@@ -96,6 +96,48 @@ export default function SettingsModal ({ onClose }) {
             </div>
           </div>
 
+          {/* Date format */}
+          <div className={s.section}>
+            <div className={s.sectionLabel}>Date format</div>
+            <div className={s.segmented}>
+              {[
+                { key: 'medium', label: 'Jan 5, 2026' },
+                { key: 'iso',    label: 'YYYY-MM-DD'  },
+                { key: 'eu',     label: 'DD/MM/YYYY'  },
+                { key: 'us',     label: 'MM/DD/YYYY'  },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={[s.seg, settings.dateFormat === key ? s.segOn : ''].filter(Boolean).join(' ')}
+                  onClick={() => set({ dateFormat: key })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* CSV delimiter */}
+          <div className={s.section}>
+            <div className={s.sectionLabel}>CSV delimiter</div>
+            <div className={s.segmented}>
+              {[
+                { key: 'auto', label: 'Auto' },
+                { key: ',',    label: 'Comma'     },
+                { key: ';',    label: 'Semicolon' },
+                { key: '\t',   label: 'Tab'       },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={[s.seg, settings.csvDelimiter === key ? s.segOn : ''].filter(Boolean).join(' ')}
+                  onClick={() => set({ csvDelimiter: key })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Default chart palette */}
           <div className={s.section}>
             <div className={s.sectionLabel}>Chart palette</div>

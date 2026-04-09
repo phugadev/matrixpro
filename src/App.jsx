@@ -269,7 +269,8 @@ function Inner () {
       if (!text?.trim()) return
       const lines = text.trim().split('\n').filter(l => l.trim())
       if (lines.length < 2) return
-      const delimiter = lines[0].includes('\t') ? '\t' : ','
+      const settingDelim = state.settings?.csvDelimiter
+      const delimiter = settingDelim && settingDelim !== 'auto' ? settingDelim : (lines[0].includes('\t') ? '\t' : ',')
       const res = Papa.parse(text.trim(), { header: true, skipEmptyLines: true, delimiter, dynamicTyping: false })
       if (!res.data.length || !res.meta.fields?.length) return
       e.preventDefault()
@@ -321,7 +322,9 @@ function Inner () {
 
   const parseAndAdd = useCallback((text, filename) => {
     const ext = filename.split('.').pop().toLowerCase()
-    const res = Papa.parse(text, { header: true, skipEmptyLines: true, delimiter: ext === 'tsv' ? '\t' : ',', dynamicTyping: false })
+    const settingDelim = state.settings?.csvDelimiter
+    const fileDelim = ext === 'tsv' ? '\t' : (settingDelim && settingDelim !== 'auto' ? settingDelim : ',')
+    const res = Papa.parse(text, { header: true, skipEmptyLines: true, delimiter: fileDelim, dynamicTyping: false })
     if (!res.data.length) { toast('Empty or unreadable file', '⚠'); return }
     const newDs = makeDS(filename.replace(/\.[^.]+$/, ''), res.data, state.tabs.length)
     newDs.cols = (res.meta.fields || []).filter(c => c && c.trim())

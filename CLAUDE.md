@@ -3,7 +3,7 @@
 > **Two-file context system** (reusable pattern for any project):
 > - `CLAUDE.md` (this file) — *behavioral contract*: how to work here, patterns to follow, rules that don't change often.
 > - `CODEAUDIT.md` — *knowledge snapshot*: what already exists, where it lives, what to avoid breaking. Update it when you add a significant feature.
->
+> When implementing features, follow the workflow in .claude/skills/feature/SKILL.md.
 > Keep CLAUDE.md stable. Grow CODEAUDIT.md as the project grows.
 
 ---

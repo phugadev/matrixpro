@@ -48,7 +48,7 @@ export function buildCatColorMap (uniqueValues) {
   return map
 }
 
-export function fmtCell (v, colType, catColorMap, numFmt) {
+export function fmtCell (v, colType, catColorMap, numFmt, dateFmt = 'medium') {
   if (v === undefined || v === null || v === '') return '—'
   if (colType === 'boolean') {
     const isTrue = /^(true|yes)$/i.test(String(v).trim())
@@ -61,7 +61,7 @@ export function fmtCell (v, colType, catColorMap, numFmt) {
     const bg    = entry?.bg    ?? hexAlpha(PALETTES[0][0], 0.13)
     return { type: 'pill', bg, color, label: String(v) }
   }
-  if (colType === 'date') return { type: 'date', label: fmtDate(v) }
+  if (colType === 'date') return { type: 'date', label: fmtDate(v, dateFmt) }
   const n = parseNumeric(v)
   if (!isNaN(n) && String(v).trim() !== '') return { type: 'num', label: numFmt ? applyNumFmt(n, numFmt) : fmtN(n) }
   return { type: 'text', label: String(v) }
@@ -147,9 +147,21 @@ export function parseDate (v) {
   return new Date(s)
 }
 
-export function fmtDate (v) {
+export function fmtDate (v, fmt = 'medium') {
   const d = parseDate(v)
   if (isNaN(d.getTime())) return String(v)
+  if (fmt === 'iso') {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0')
+    return `${y}-${m}-${day}`
+  }
+  if (fmt === 'eu') {
+    const m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0')
+    return `${day}/${m}/${d.getFullYear()}`
+  }
+  if (fmt === 'us') {
+    const m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0')
+    return `${m}/${day}/${d.getFullYear()}`
+  }
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 

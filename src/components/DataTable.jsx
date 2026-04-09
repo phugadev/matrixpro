@@ -113,7 +113,8 @@ function CellEditor ({ initialValue, colType, onCommit, onCancel, onNavigate }) 
 export default function DataTable ({ ds, compact = false, onAddComputedCol, onEditComputedCol }) {
   const { state, dispatch } = useApp()
   const pal   = PALETTES[state.palette]
-  const rowH  = state.settings?.rowHeight ?? 32
+  const rowH    = state.settings?.rowHeight ?? 32
+  const dateFmt = state.settings?.dateFormat ?? 'medium'
   const getNumFmt = useCallback(col =>
     (ds.numberFormats || {})[col] ?? state.settings?.defaultNumFmt ?? null,
   [ds.numberFormats, state.settings?.defaultNumFmt])
@@ -1194,7 +1195,7 @@ export default function DataTable ({ ds, compact = false, onAddComputedCol, onEd
                   {visibleCols.map((col, colVisIdx) => {
                     const isComputed   = colTypes[col] === 'computed'
                     const rawVal       = isComputed ? evalFormula(ds.computedCols[col].formula, row) : row[col]
-                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col], getNumFmt(col))
+                    const cell         = fmtCell(rawVal, colTypes[col], catColorMaps[col], getNumFmt(col), dateFmt)
                     const nm           = numMax[col]
                     const pct          = nm ? Math.abs(parseNumeric(rawVal) || 0) / nm.max * 100 : 0
                     const colRules     = getColRules(ds, col)

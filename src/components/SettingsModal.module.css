@@ -23,7 +23,7 @@
 }
 .closeBtn:hover { color: var(--tx1); background: var(--bg4); }
 
-.body { padding: 14px 16px; display: flex; flex-direction: column; gap: 20px; }
+.body { padding: 14px 16px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto; }
 
 .section { display: flex; flex-direction: column; gap: 8px; }
 
@@ -58,7 +58,7 @@
 .fmtEx { font: 10.5px/1 var(--m); color: var(--tx3); margin-top: 2px; }
 
 /* ── Palette swatches ── */
-.palRow { display: flex; gap: 8px; }
+.palRow { display: flex; flex-wrap: wrap; gap: 8px; }
 .palSwatch {
   display: flex; gap: 3px; align-items: center;
   padding: 6px 8px; border-radius: 8px; border: 2px solid transparent;
