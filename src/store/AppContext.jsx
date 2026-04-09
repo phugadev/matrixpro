@@ -25,7 +25,7 @@ const init = {
   pivotRowFields:   [],
   pivotColField:    '',
   pivotValueFields: [],
-  settings: { rowHeight: 32, defaultNumFmt: null, ollamaModel: 'llama3.2', dateFormat: 'medium', csvDelimiter: 'auto' },
+  settings: { rowHeight: 32, defaultNumFmt: null, ollamaModel: 'llama3.2:latest', dateFormat: 'medium', csvDelimiter: 'auto' },
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────

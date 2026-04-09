@@ -22,7 +22,7 @@
 - [x] **Row height** — Compact (24) / Default (32) / Comfortable (40); stored in `state.settings.rowHeight`; applied via `--row-h` CSS custom property on the scroll container; virtualisation math uses same value
 - [x] **Default number format** — pre-applied to numeric cells/summary row when no column-specific format is set; stored in `state.settings.defaultNumFmt`; chip picker (7 options + Auto)
 - [x] **Chart palette** — surfaces existing `state.palette` via swatch picker; same `SET_PALETTE` action
-- [x] **Ollama model** — stored in `state.settings.ollamaModel` (default `llama3.2`); "Detect" button fetches `http://localhost:11434/api/tags` and renders available models as clickable chips; manual text input + Set for when Ollama is offline; selected model consumed by `Panel.jsx → AISuggestions`
+- [x] **Ollama model** — stored in `state.settings.ollamaModel` (default `llama3.2:latest`); "Detect" button fetches `http://localhost:11434/api/tags` and renders available models as clickable chips; manual text input + Set for when Ollama is offline; selected model consumed by `Panel.jsx → AISuggestions`
 - [x] **Date format** — stored in `state.settings.dateFormat` (default `medium`); 4 options: Medium (Jan 5, 2026), ISO (YYYY-MM-DD), EU (DD/MM/YYYY), US (MM/DD/YYYY); threaded through `fmtCell` → `fmtDate` in `data.js`; consumed in `DataTable.jsx`
 - [x] **CSV delimiter** — stored in `state.settings.csvDelimiter` (default `auto`); options: Auto / Comma / Semicolon / Tab; wired into paste handler and `parseAndAdd` in `App.jsx`; TSV extension still forces Tab regardless
 - [x] Settings persisted to `localStorage` (`mp-settings`) and restored on mount; separate from SQLite dataset persistence
