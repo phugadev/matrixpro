@@ -1,7 +1,7 @@
 # CODEAUDIT.md — Matrix Pro
 
 > **Living document.** Update whenever a significant feature is added or removed.
-> Last updated: 2026-04-09 (settings: date format, CSV delimiter, palette overflow fix)
+> Last updated: 2026-04-09 (settings redesign: tab nav, row layout, palette overhaul)
 
 ---
 
@@ -19,13 +19,15 @@
 - [x] Group & aggregate — category grouping → new tab
 
 ### App settings (`SettingsModal.jsx`, `⌘,`)
-- [x] **Row height** — Compact (24) / Default (32) / Comfortable (40); stored in `state.settings.rowHeight`; applied via `--row-h` CSS custom property on the scroll container; virtualisation math uses same value
-- [x] **Default number format** — pre-applied to numeric cells/summary row when no column-specific format is set; stored in `state.settings.defaultNumFmt`; chip picker (7 options + Auto)
-- [x] **Chart palette** — surfaces existing `state.palette` via swatch picker; same `SET_PALETTE` action
-- [x] **Ollama model** — stored in `state.settings.ollamaModel` (default `llama3.2:latest`); "Detect" button fetches `http://localhost:11434/api/tags` and renders available models as clickable chips; manual text input + Set for when Ollama is offline; selected model consumed by `Panel.jsx → AISuggestions`
-- [x] **Date format** — stored in `state.settings.dateFormat` (default `medium`); 4 options: Medium (Jan 5, 2026), ISO (YYYY-MM-DD), EU (DD/MM/YYYY), US (MM/DD/YYYY); threaded through `fmtCell` → `fmtDate` in `data.js`; consumed in `DataTable.jsx`
-- [x] **CSV delimiter** — stored in `state.settings.csvDelimiter` (default `auto`); options: Auto / Comma / Semicolon / Tab; wired into paste handler and `parseAndAdd` in `App.jsx`; TSV extension still forces Tab regardless
-- [x] Settings persisted to `localStorage` (`mp-settings`) and restored on mount; separate from SQLite dataset persistence
+- [x] **Layout** — 500px modal; horizontal tab nav (Appearance / Data / AI); row layout (label-left, control-right) for single controls; full-width sections for pickers
+- [x] **Row height** — Compact (24) / Default (32) / Comfortable (40); stored in `state.settings.rowHeight`
+- [x] **Chart palette** — 4 palettes shown as 2×2 card grid with name + all 10 dots; Electric / Neon / Sunset / Aurora; same `SET_PALETTE` action
+- [x] **Number format** — 7 chip options + Auto; stored in `state.settings.defaultNumFmt`
+- [x] **Date format** — stored in `state.settings.dateFormat` (default `medium`); 4 options; wired through `fmtCell` → `fmtDate` in `data.js`
+- [x] **CSV delimiter** — stored in `state.settings.csvDelimiter` (default `auto`); wired into paste handler and `parseAndAdd`; TSV always forces Tab
+- [x] **Ollama model** — stored in `state.settings.ollamaModel` (default `llama3.2:latest`); Detect fetches `/api/tags`; manual fallback input
+- [x] Settings persisted to `localStorage` (`mp-settings`) and restored on mount
+- [x] **Palettes overhauled** — Electric / Neon / Sunset / Aurora; all vibrant dark-mode colours; P0 indexes 1,2,3,5,6,8 retain hue roles for `COL_TYPES`
 
 ### Workspaces
 - [x] Create / rename / delete workspaces; move dataset via hover folder icon

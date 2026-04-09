@@ -4,27 +4,46 @@ import { PALETTES } from '../lib/constants'
 import s from './SettingsModal.module.css'
 
 const NUM_FMTS = [
-  { key: null,         label: 'Auto',       example: '1.5k' },
-  { key: 'int',        label: 'Integer',    example: '1,234' },
+  { key: null,         label: 'Auto',       example: '1.5k'   },
+  { key: 'int',        label: 'Integer',    example: '1,234'  },
   { key: 'fixed1',     label: '1 decimal',  example: '1,234.5' },
   { key: 'fixed2',     label: '2 decimals', example: '1,234.56' },
   { key: 'currency',   label: 'Currency',   example: '$1,234' },
-  { key: 'percent',    label: 'Percent',    example: '42.3%' },
+  { key: 'percent',    label: 'Percent',    example: '42.3%'  },
   { key: 'scientific', label: 'Scientific', example: '1.23e+2' },
 ]
 
 const ROW_HEIGHTS = [
-  { value: 24, label: 'Compact' },
-  { value: 32, label: 'Default' },
+  { value: 24, label: 'Compact'     },
+  { value: 32, label: 'Default'     },
   { value: 40, label: 'Comfortable' },
 ]
+
+const DATE_FMTS = [
+  { key: 'medium', label: 'Jan 5, 2026' },
+  { key: 'iso',    label: 'YYYY-MM-DD'  },
+  { key: 'eu',     label: 'DD/MM/YYYY'  },
+  { key: 'us',     label: 'MM/DD/YYYY'  },
+]
+
+const DELIMITERS = [
+  { key: 'auto', label: 'Auto'      },
+  { key: ',',    label: 'Comma'     },
+  { key: ';',    label: 'Semicolon' },
+  { key: '\t',   label: 'Tab'       },
+]
+
+const PAL_NAMES = ['Electric', 'Neon', 'Sunset', 'Aurora']
+
+const TABS = ['Appearance', 'Data', 'AI']
 
 export default function SettingsModal ({ onClose }) {
   const { state, dispatch } = useApp()
   const settings = state.settings || {}
-  const [availableModels, setAvailableModels] = useState([])
-  const [modelStatus, setModelStatus]         = useState('idle') // idle | loading | ok | error
-  const [customModel, setCustomModel]         = useState('')
+  const [tab, setTab]                   = useState('Appearance')
+  const [availableModels, setAvailable] = useState([])
+  const [modelStatus, setModelStatus]   = useState('idle')
+  const [customModel, setCustomModel]   = useState('')
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose() }
@@ -40,10 +59,10 @@ export default function SettingsModal ({ onClose }) {
       const res = await fetch('http://localhost:11434/api/tags')
       if (!res.ok) throw new Error()
       const { models } = await res.json()
-      setAvailableModels((models || []).map(m => m.name))
+      setAvailable((models || []).map(m => m.name))
       setModelStatus('ok')
     } catch {
-      setAvailableModels([])
+      setAvailable([])
       setModelStatus('error')
     }
   }, [])
@@ -52,6 +71,7 @@ export default function SettingsModal ({ onClose }) {
     <div className={s.overlay} onMouseDown={onClose}>
       <div className={s.modal} onMouseDown={e => e.stopPropagation()}>
 
+        {/* Header */}
         <div className={s.hd}>
           <div className={s.title}>Settings</div>
           <button className={s.closeBtn} onClick={onClose}>
@@ -61,114 +81,140 @@ export default function SettingsModal ({ onClose }) {
           </button>
         </div>
 
+        {/* Tab nav */}
+        <div className={s.nav}>
+          {TABS.map(t => (
+            <button
+              key={t}
+              className={[s.navTab, tab === t ? s.navTabOn : ''].filter(Boolean).join(' ')}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
         <div className={s.body}>
 
-          {/* Row height */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>Row height</div>
-            <div className={s.segmented}>
-              {ROW_HEIGHTS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  className={[s.seg, settings.rowHeight === value ? s.segOn : ''].filter(Boolean).join(' ')}
-                  onClick={() => set({ rowHeight: value })}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* ── Appearance ── */}
+          {tab === 'Appearance' && <>
 
-          {/* Default number format */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>Default number format</div>
-            <div className={s.fmtGrid}>
-              {NUM_FMTS.map(f => (
-                <button
-                  key={String(f.key)}
-                  className={[s.fmtChip, settings.defaultNumFmt === f.key ? s.fmtChipOn : ''].filter(Boolean).join(' ')}
-                  onClick={() => set({ defaultNumFmt: f.key })}
-                >
-                  <span className={s.fmtLabel}>{f.label}</span>
-                  <span className={s.fmtEx}>{f.example}</span>
-                </button>
-              ))}
+            <div className={s.row}>
+              <div className={s.rowMeta}>
+                <div className={s.rowLabel}>Row height</div>
+              </div>
+              <div className={s.segmented}>
+                {ROW_HEIGHTS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    className={[s.seg, settings.rowHeight === value ? s.segOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => set({ rowHeight: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Date format */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>Date format</div>
-            <div className={s.segmented}>
-              {[
-                { key: 'medium', label: 'Jan 5, 2026' },
-                { key: 'iso',    label: 'YYYY-MM-DD'  },
-                { key: 'eu',     label: 'DD/MM/YYYY'  },
-                { key: 'us',     label: 'MM/DD/YYYY'  },
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  className={[s.seg, settings.dateFormat === key ? s.segOn : ''].filter(Boolean).join(' ')}
-                  onClick={() => set({ dateFormat: key })}
-                >
-                  {label}
-                </button>
-              ))}
+            <hr className={s.divider} />
+
+            <div className={s.section}>
+              <div className={s.sectionLabel}>Chart palette</div>
+              <div className={s.palGrid}>
+                {PALETTES.map((pal, idx) => (
+                  <button
+                    key={idx}
+                    className={[s.palCard, state.palette === idx ? s.palCardOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => dispatch({ type: 'SET_PALETTE', idx })}
+                  >
+                    <div className={s.palName}>{PAL_NAMES[idx]}</div>
+                    <div className={s.palDots}>
+                      {pal.map(c => <span key={c} className={s.palDot} style={{ background: c }} />)}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* CSV delimiter */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>CSV delimiter</div>
-            <div className={s.segmented}>
-              {[
-                { key: 'auto', label: 'Auto' },
-                { key: ',',    label: 'Comma'     },
-                { key: ';',    label: 'Semicolon' },
-                { key: '\t',   label: 'Tab'       },
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  className={[s.seg, settings.csvDelimiter === key ? s.segOn : ''].filter(Boolean).join(' ')}
-                  onClick={() => set({ csvDelimiter: key })}
-                >
-                  {label}
-                </button>
-              ))}
+          </>}
+
+          {/* ── Data ── */}
+          {tab === 'Data' && <>
+
+            <div className={s.section}>
+              <div className={s.sectionLabel}>Number format</div>
+              <div className={s.fmtGrid}>
+                {NUM_FMTS.map(f => (
+                  <button
+                    key={String(f.key)}
+                    className={[s.fmtChip, settings.defaultNumFmt === f.key ? s.fmtChipOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => set({ defaultNumFmt: f.key })}
+                  >
+                    <span className={s.fmtLabel}>{f.label}</span>
+                    <span className={s.fmtEx}>{f.example}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Default chart palette */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>Chart palette</div>
-            <div className={s.palRow}>
-              {PALETTES.map((pal, idx) => (
-                <button
-                  key={idx}
-                  className={[s.palSwatch, state.palette === idx ? s.palSwatchOn : ''].filter(Boolean).join(' ')}
-                  onClick={() => dispatch({ type: 'SET_PALETTE', idx })}
-                  title={['Vivid', 'Cool', 'Warm Earth', 'Soft Pastel'][idx]}
-                >
-                  {pal.slice(0, 5).map(c => (
-                    <span key={c} className={s.palDot} style={{ background: c }} />
-                  ))}
-                </button>
-              ))}
+            <hr className={s.divider} />
+
+            <div className={s.row}>
+              <div className={s.rowMeta}>
+                <div className={s.rowLabel}>Date format</div>
+              </div>
+              <div className={s.segmented}>
+                {DATE_FMTS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={[s.seg, settings.dateFormat === key ? s.segOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => set({ dateFormat: key })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Ollama model */}
-          <div className={s.section}>
-            <div className={s.sectionLabel}>Ollama model</div>
-            <div className={s.ollamaRow}>
-              <div className={s.ollamaActive}>{settings.ollamaModel || 'llama3.2'}</div>
+            <hr className={s.divider} />
+
+            <div className={s.row}>
+              <div className={s.rowMeta}>
+                <div className={s.rowLabel}>CSV delimiter</div>
+              </div>
+              <div className={s.segmented}>
+                {DELIMITERS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={[s.seg, settings.csvDelimiter === key ? s.segOn : ''].filter(Boolean).join(' ')}
+                    onClick={() => set({ csvDelimiter: key })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </>}
+
+          {/* ── AI ── */}
+          {tab === 'AI' && <>
+
+            <div className={s.row}>
+              <div className={s.rowMeta}>
+                <div className={s.rowLabel}>Ollama model</div>
+                <div className={s.rowDesc}>Active: {settings.ollamaModel || 'llama3.2:latest'}</div>
+              </div>
               <button className={s.detectBtn} onClick={detectModels} disabled={modelStatus === 'loading'}>
                 {modelStatus === 'loading' ? 'Detecting…' : 'Detect'}
               </button>
             </div>
+
             {modelStatus === 'error' && (
               <div className={s.ollamaHint}>Ollama not running. Enter a model name manually:</div>
             )}
+
             {availableModels.length > 0 && (
               <div className={s.modelList}>
                 {availableModels.map(m => (
@@ -182,6 +228,7 @@ export default function SettingsModal ({ onClose }) {
                 ))}
               </div>
             )}
+
             {(modelStatus === 'error' || modelStatus === 'ok') && (
               <div className={s.ollamaManual}>
                 <input
@@ -205,7 +252,8 @@ export default function SettingsModal ({ onClose }) {
                 </button>
               </div>
             )}
-          </div>
+
+          </>}
 
         </div>
       </div>

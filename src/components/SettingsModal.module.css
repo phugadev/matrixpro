@@ -1,21 +1,23 @@
 .overlay {
   position: fixed; inset: 0; z-index: 300;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.55);
   display: flex; align-items: center; justify-content: center;
 }
 
 .modal {
-  background: var(--bg2); border: 1px solid var(--bd2); border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.5); width: 380px;
+  background: var(--bg2); border: 1px solid var(--bd2); border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6); width: 500px;
   animation: scaleIn .12s ease; overflow: hidden;
+  display: flex; flex-direction: column;
 }
 
+/* ── Header ── */
 .hd {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px 12px; border-bottom: 1px solid var(--bd1);
+  padding: 16px 20px 14px;
 }
 
-.title { font-size: 13px; font-weight: 600; color: var(--tx1); }
+.title { font-size: 15px; font-weight: 600; color: var(--tx1); }
 
 .closeBtn {
   background: none; border: none; color: var(--tx3); cursor: pointer;
@@ -23,23 +25,52 @@
 }
 .closeBtn:hover { color: var(--tx1); background: var(--bg4); }
 
-.body { padding: 14px 16px; display: flex; flex-direction: column; gap: 20px; max-height: 70vh; overflow-y: auto; }
+/* ── Tab nav ── */
+.nav {
+  display: flex; gap: 2px;
+  border-bottom: 1px solid var(--bd1);
+  padding: 0 20px;
+}
 
-.section { display: flex; flex-direction: column; gap: 8px; }
+.navTab {
+  padding: 9px 14px; font-size: 13px; color: var(--tx3);
+  background: none; border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; margin-bottom: -1px; transition: color .12s;
+}
+.navTab:hover { color: var(--tx2); }
+.navTabOn { color: var(--tx1) !important; border-bottom-color: var(--ac) !important; font-weight: 500; }
 
+/* ── Body ── */
+.body {
+  padding: 20px; display: flex; flex-direction: column; gap: 18px;
+  max-height: 65vh; overflow-y: auto;
+}
+
+/* ── Row (label-left, control-right) ── */
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.rowMeta { flex: 1; min-width: 0; }
+.rowLabel { font-size: 13px; font-weight: 500; color: var(--tx1); }
+.rowDesc  { font-size: 11px; color: var(--tx3); margin-top: 3px; font-family: var(--m); }
+
+/* ── Section (full-width block) ── */
+.section { display: flex; flex-direction: column; gap: 10px; }
 .sectionLabel {
   font-size: 11px; font-weight: 600; color: var(--tx3);
-  text-transform: uppercase; letter-spacing: .04em;
+  text-transform: uppercase; letter-spacing: .05em;
 }
 
-/* ── Row height segmented control ── */
+.divider { border: none; border-top: 1px solid var(--bd1); margin: 0; }
+
+/* ── Segmented control ── */
 .segmented {
-  display: flex; border: 1px solid var(--bd2); border-radius: 7px; overflow: hidden;
+  display: flex; border: 1px solid var(--bd2); border-radius: 7px; overflow: hidden; flex-shrink: 0;
 }
 .seg {
-  flex: 1; padding: 6px 0; font-size: 12px; color: var(--tx2);
+  padding: 6px 12px; font-size: 12px; color: var(--tx2);
   background: var(--bg3); border: none; cursor: pointer;
-  border-right: 1px solid var(--bd2); transition: all .1s;
+  border-right: 1px solid var(--bd2); transition: all .1s; white-space: nowrap;
 }
 .seg:last-child { border-right: none; }
 .seg:hover { background: var(--bg4); color: var(--tx1); }
@@ -49,51 +80,53 @@
 .fmtGrid { display: flex; flex-wrap: wrap; gap: 6px; }
 .fmtChip {
   display: flex; flex-direction: column; align-items: flex-start;
-  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--bd2);
-  background: var(--bg3); cursor: pointer; transition: all .1s; min-width: 82px;
+  padding: 7px 11px; border-radius: 8px; border: 1px solid var(--bd2);
+  background: var(--bg3); cursor: pointer; transition: all .1s; min-width: 86px;
 }
 .fmtChip:hover { border-color: var(--ac); background: var(--bg4); }
 .fmtChipOn { border-color: var(--ac) !important; background: rgba(99,102,241,.1) !important; }
 .fmtLabel { font-size: 12px; font-weight: 500; color: var(--tx1); }
-.fmtEx { font: 10.5px/1 var(--m); color: var(--tx3); margin-top: 2px; }
+.fmtEx    { font: 10.5px/1 var(--m); color: var(--tx3); margin-top: 3px; }
 
-/* ── Palette swatches ── */
-.palRow { display: flex; flex-wrap: wrap; gap: 8px; }
-.palSwatch {
-  display: flex; gap: 3px; align-items: center;
-  padding: 6px 8px; border-radius: 8px; border: 2px solid transparent;
-  background: var(--bg3); cursor: pointer; transition: all .1s;
-}
-.palSwatch:hover { background: var(--bg4); border-color: var(--bd2); }
-.palSwatchOn { border-color: var(--ac) !important; background: rgba(99,102,241,.08) !important; }
-.palDot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+/* ── Palette grid ── */
+.palGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-/* ── Ollama model ── */
-.ollamaRow { display: flex; align-items: center; gap: 8px; }
-.ollamaActive {
-  flex: 1; padding: 6px 10px; border-radius: 7px;
-  border: 1px solid var(--bd2); background: var(--bg3);
-  font: 12px/1.4 var(--m); color: var(--tx1); min-height: 30px;
+.palCard {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 12px 14px; border-radius: 10px; border: 2px solid var(--bd2);
+  background: var(--bg3); cursor: pointer; transition: all .15s; text-align: left;
 }
+.palCard:hover { border-color: var(--bd3); background: var(--bg4); }
+.palCardOn { border-color: var(--ac) !important; background: rgba(99,102,241,.07) !important; }
+
+.palName { font-size: 11.5px; font-weight: 600; color: var(--tx2); letter-spacing: .02em; }
+
+.palDots { display: flex; gap: 4px; }
+.palDot  { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Ollama ── */
 .detectBtn {
-  padding: 6px 12px; border-radius: 7px; border: 1px solid var(--bd2);
+  padding: 7px 14px; border-radius: 7px; border: 1px solid var(--bd2);
   background: var(--bg3); color: var(--tx2); font-size: 12px; cursor: pointer;
-  transition: all .1s; white-space: nowrap;
+  transition: all .1s; white-space: nowrap; flex-shrink: 0;
 }
 .detectBtn:hover:not(:disabled) { background: var(--bg4); color: var(--tx1); border-color: var(--ac); }
-.detectBtn:disabled { opacity: .45; cursor: default; }
+.detectBtn:disabled { opacity: .4; cursor: default; }
+
 .ollamaHint { font-size: 11px; color: var(--tx3); }
+
 .modelList { display: flex; flex-wrap: wrap; gap: 6px; }
 .modelChip {
-  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--bd2);
+  padding: 5px 11px; border-radius: 6px; border: 1px solid var(--bd2);
   background: var(--bg3); color: var(--tx2); font: 11.5px/1 var(--m);
   cursor: pointer; transition: all .1s;
 }
 .modelChip:hover { border-color: var(--ac); color: var(--tx1); background: var(--bg4); }
 .modelChipOn { border-color: var(--ac) !important; background: rgba(99,102,241,.1) !important; color: var(--tx1) !important; }
+
 .ollamaManual { display: flex; gap: 8px; }
 .modelInput {
-  flex: 1; padding: 6px 10px; border-radius: 7px;
+  flex: 1; padding: 7px 11px; border-radius: 7px;
   border: 1px solid var(--bd2); background: var(--bg3);
   color: var(--tx1); font-size: 12px; outline: none;
 }

@@ -8,16 +8,16 @@ export function hexAlpha (hex, a = 0.12) {
 
 // ─── Color palettes ───────────────────────────────────────────────────────────
 // 4 distinct palettes, zero cross-palette duplicate hex values.
-// P0 (Vivid) is the anchor — all derived colors (col types, tab dots, category pills) use it.
+// P0 (Electric) is the anchor — all derived colors (col types, tab dots, category pills) use it.
 export const PALETTES = [
-  // P0 – Vivid
-  ['#6366f1','#06b6d4','#10b981','#f59e0b','#f43f5e','#a855f7','#fb923c','#84cc16','#ec4899','#14b8a6'],
-  // P1 – Cool
-  ['#3b82f6','#8b5cf6','#0284c7','#059669','#ca8a04','#ef4444','#f97316','#4338ca','#db2777','#22c55e'],
-  // P2 – Warm Earth
-  ['#dc2626','#ea580c','#d97706','#65a30d','#0f766e','#0369a1','#7e22ce','#be185d','#15803d','#1d4ed8'],
-  // P3 – Soft Pastel
-  ['#0ea5e9','#22d3ee','#34d399','#a3e635','#fde047','#fdba74','#f87171','#c084fc','#f0abfc','#67e8f9'],
+  // P0 – Electric (anchor: col type badges derive from indexes 1,2,3,5,6,8)
+  ['#818cf8','#22d3ee','#34d399','#fbbf24','#fb7185','#c084fc','#fb923c','#a3e635','#f472b6','#2dd4bf'],
+  // P1 – Neon
+  ['#60a5fa','#e879f9','#4ade80','#facc15','#f87171','#38bdf8','#fdba74','#86efac','#a78bfa','#67e8f9'],
+  // P2 – Sunset
+  ['#ef4444','#f97316','#eab308','#d946ef','#06b6d4','#10b981','#6366f1','#f59e0b','#ec4899','#14b8a6'],
+  // P3 – Aurora
+  ['#a5b4fc','#7dd3fc','#6ee7b7','#fde68a','#fca5a5','#d8b4fe','#fed7aa','#bbf7d0','#fecdd3','#bae6fd'],
 ]
 
 // mx:7f3a9c2e1b84d056f7a3c9e2814b0d56
